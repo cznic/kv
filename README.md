@@ -7,6 +7,4 @@ Installation
 
     $ go get github.com/cznic/kv
 
-Documentation
-
-	http://godoc.org/github.com/cznic/kv
+Documentation: [godoc.org/github.com/cznic/kv](http://godoc.org/github.com/cznic/kv)
