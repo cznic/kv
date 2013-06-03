@@ -723,7 +723,36 @@ func (db *DB) SeekFirst() (enum *Enumerator, err error) {
 	return
 }
 
-//TODO SeekLast
+// SeekLast returns an enumerator positioned on the last KV pair in the DB,
+// if any. For an empty DB, err == io.EOF is returend.
+//
+// SeekLast is atomic and it is safe for concurrent use by multiple
+// goroutines.
+func (db *DB) SeekLast() (enum *Enumerator, err error) {
+	if err = db.enter(); err != nil {
+		return
+	}
+
+	defer db.leave(&err)
+
+	enum0, err := db.root.SeekLast()
+	if err != nil {
+		return
+	}
+
+	var key []byte
+	if key, _, err = enum0.Current(); err != nil {
+		return
+	}
+
+	enum = &Enumerator{
+		db:       db,
+		enum:     enum0,
+		firstHit: true,
+		key:      append([]byte(nil), key...),
+	}
+	return
+}
 
 // Set sets the value associated with key. Any previous value, if existed, is
 // overwritten by the new one.
@@ -800,7 +829,56 @@ retry:
 	return
 }
 
-//TODO Prev
+// Prev returns the currently enumerated KV pair, if it exists and moves to the
+// previous KV in the key collation order. If there is no KV pair to return,
+// err == io.EOF is returned.
+//
+// Prev is atomic and it is safe for concurrent use by multiple goroutines.
+func (e *Enumerator) Prev() (key, value []byte, err error) {
+	if err = e.db.enter(); err != nil {
+		return
+	}
+
+	defer e.db.leave(&err)
+
+	if err = e.err; err != nil {
+		return
+	}
+
+	canRetry := true
+retry:
+	if key, value, err = e.enum.Current(); err != nil {
+		if _, ok := err.(*lldb.ErrINVAL); !ok || !canRetry {
+			e.err = err
+			return
+		}
+
+		canRetry = false
+		switch {
+		default:
+			var hit bool
+			if e.enum, hit, err = e.db.root.Seek(e.key); err != nil {
+				e.err = err
+				return
+			}
+
+			if !e.firstHit && hit {
+				err = e.enum.Prev()
+				if err != nil {
+					e.err = err
+					return
+				}
+			}
+
+			goto retry
+		}
+	}
+
+	e.firstHit = false
+	e.key = append([]byte(nil), key...)
+	e.err = e.enum.Prev()
+	return
+}
 
 // Inc atomically increments the value associated with key by delta and
 // returns the new value. If the value doesn't exists before calling Inc or if

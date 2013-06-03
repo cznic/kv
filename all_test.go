@@ -57,6 +57,11 @@ func TestCreate(t *testing.T) {
 		t.Error("unexpected success")
 		return
 	}
+
+	if _, err = Open(name, &Options{}); err == nil {
+		t.Error("unexpected success")
+		return
+	}
 }
 
 func TestCreateMem(t *testing.T) {
@@ -200,7 +205,8 @@ func TestVerify(t *testing.T) {
 	}
 }
 
-//TODO xacts test
+//DONE xacts test
+// ---- tested in lldb extensively
 
 func n2b(n int) []byte {
 	var b [8]byte
@@ -209,6 +215,10 @@ func n2b(n int) []byte {
 }
 
 func b2n(b []byte) int {
+	if len(b) != 8 {
+		return mathutil.MinInt
+	}
+
 	return int(binary.BigEndian.Uint64(b))
 }
 
@@ -1335,25 +1345,17 @@ func TestSeekNext(t *testing.T) {
 		hit  bool
 		keys []int
 	}{
-		{5, false, []int{10, 20, 30, -1, 10, -1}},
-		{10, true, []int{10, 20, 30, -1, 10, -1}},
-		{15, false, []int{20, 30, -1, 20, 10, -1}},
-		{20, true, []int{20, 30, -1, 20, 10, -1}},
-		{25, false, []int{30, -1, 30, 20, 10, -1}},
-		{30, true, []int{30, -1, 30, 20, 10, -1}},
-		{35, false, []int{-1, 30, 20, 10, -1}},
+		{5, false, []int{10, 20, 30}},
+		{10, true, []int{10, 20, 30}},
+		{15, false, []int{20, 30}},
+		{20, true, []int{20, 30}},
+		{25, false, []int{30}},
+		{30, true, []int{30}},
+		{35, false, []int{}},
 	}
 
 	for i, test := range table {
-		var up, down []int
-		for j, v := range test.keys {
-			if v < 0 {
-				up = test.keys[:j]
-				down = test.keys[j:]
-				break
-			}
-		}
-
+		up := test.keys
 		db, err := CreateMem(&Options{})
 		if err != nil {
 			t.Fatal(i, err)
@@ -1402,6 +1404,10 @@ func TestSeekNext(t *testing.T) {
 					t.Fatal(i, g, e)
 				}
 
+				if j >= len(up) {
+					t.Fatal(i, j, brokenSerial)
+				}
+
 				if g, e := b2n(k), up[j]; g != e {
 					t.Fatal(i, j, brokenSerial, g, e)
 				}
@@ -1422,7 +1428,100 @@ func TestSeekNext(t *testing.T) {
 				t.Fatal(i, j, g, e)
 			}
 		}
-		_ = down //TODO
+
+	}
+}
+
+func TestSeekPrev(t *testing.T) {
+	// seeking within 3 keys: 10, 20, 30
+	table := []struct {
+		k    int
+		hit  bool
+		keys []int
+	}{
+		{5, false, []int{10}},
+		{10, true, []int{10}},
+		{15, false, []int{20, 10}},
+		{20, true, []int{20, 10}},
+		{25, false, []int{30, 20, 10}},
+		{30, true, []int{30, 20, 10}},
+		{35, false, []int{}},
+	}
+
+	for i, test := range table {
+		down := test.keys
+		db, err := CreateMem(&Options{})
+		if err != nil {
+			t.Fatal(i, err)
+		}
+
+		if err := db.Set(n2b(10), n2b(100)); err != nil {
+			t.Fatal(i, err)
+		}
+
+		if err := db.Set(n2b(20), n2b(200)); err != nil {
+			t.Fatal(i, err)
+		}
+
+		if err := db.Set(n2b(30), n2b(300)); err != nil {
+			t.Fatal(i, err)
+		}
+
+		for brokenSerial := 0; brokenSerial < 16; brokenSerial++ {
+			en, hit, err := db.Seek(n2b(test.k))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if g, e := hit, test.hit; g != e {
+				t.Fatal(i, g, e)
+			}
+
+			j := 0
+			for {
+				if brokenSerial&(1<<uint(j)) != 0 {
+					if err := db.Set(n2b(20), n2b(200)); err != nil {
+						t.Fatal(i, err)
+					}
+				}
+
+				k, v, err := en.Prev()
+				if err != nil {
+					if err != io.EOF {
+						t.Fatal(i, err)
+					}
+
+					break
+				}
+
+				if g, e := len(k), 8; g != e {
+					t.Fatal(i, g, e)
+				}
+
+				if j >= len(down) {
+					t.Fatal(i, j, brokenSerial)
+				}
+
+				if g, e := b2n(k), down[j]; g != e {
+					t.Fatal(i, j, brokenSerial, g, e)
+				}
+
+				if g, e := len(v), 8; g != e {
+					t.Fatal(i, g, e)
+				}
+
+				if g, e := b2n(v), 10*down[j]; g != e {
+					t.Fatal(i, g, e)
+				}
+
+				j++
+
+			}
+
+			if g, e := j, len(down); g != e {
+				t.Fatal(i, j, g, e)
+			}
+		}
 
 	}
 }
@@ -1525,4 +1624,152 @@ func BenchmarkNext1e3(b *testing.B) {
 		}
 	}
 	b.StopTimer()
+}
+
+func TestSeekFirst(t *testing.T) {
+	db, err := CreateMem(&Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	en, err := db.SeekFirst()
+	if err == nil {
+		t.Fatal(err)
+	}
+
+	if err := db.Set(n2b(100), n2b(1000)); err != nil {
+		t.Fatal(err)
+	}
+
+	if en, err = db.SeekFirst(); err != nil {
+		t.Fatal(err)
+	}
+
+	k, v, err := en.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if g, e := b2n(k), 100; g != e {
+		t.Fatal(g, e)
+	}
+
+	if g, e := b2n(v), 1000; g != e {
+		t.Fatal(g, e)
+	}
+
+	if err := db.Set(n2b(110), n2b(1100)); err != nil {
+		t.Fatal(err)
+	}
+
+	if en, err = db.SeekFirst(); err != nil {
+		t.Fatal(err)
+	}
+
+	if k, v, err = en.Next(); err != nil {
+		t.Fatal(err)
+	}
+
+	if g, e := b2n(k), 100; g != e {
+		t.Fatal(g, e)
+	}
+
+	if g, e := b2n(v), 1000; g != e {
+		t.Fatal(g, e)
+	}
+
+	if err := db.Set(n2b(90), n2b(900)); err != nil {
+		t.Fatal(err)
+	}
+
+	if en, err = db.SeekFirst(); err != nil {
+		t.Fatal(err)
+	}
+
+	if k, v, err = en.Next(); err != nil {
+		t.Fatal(err)
+	}
+
+	if g, e := b2n(k), 90; g != e {
+		t.Fatal(g, e)
+	}
+
+	if g, e := b2n(v), 900; g != e {
+		t.Fatal(g, e)
+	}
+
+}
+
+func TestSeekLast(t *testing.T) {
+	db, err := CreateMem(&Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	en, err := db.SeekLast()
+	if err == nil {
+		t.Fatal(err)
+	}
+
+	if err := db.Set(n2b(100), n2b(1000)); err != nil {
+		t.Fatal(err)
+	}
+
+	if en, err = db.SeekLast(); err != nil {
+		t.Fatal(err)
+	}
+
+	k, v, err := en.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if g, e := b2n(k), 100; g != e {
+		t.Fatal(g, e)
+	}
+
+	if g, e := b2n(v), 1000; g != e {
+		t.Fatal(g, e)
+	}
+
+	if err := db.Set(n2b(90), n2b(900)); err != nil {
+		t.Fatal(err)
+	}
+
+	if en, err = db.SeekLast(); err != nil {
+		t.Fatal(err)
+	}
+
+	if k, v, err = en.Next(); err != nil {
+		t.Fatal(err)
+	}
+
+	if g, e := b2n(k), 100; g != e {
+		t.Fatal(g, e)
+	}
+
+	if g, e := b2n(v), 1000; g != e {
+		t.Fatal(g, e)
+	}
+
+	if err := db.Set(n2b(110), n2b(1100)); err != nil {
+		t.Fatal(err)
+	}
+
+	if en, err = db.SeekLast(); err != nil {
+		t.Fatal(err)
+	}
+
+	if k, v, err = en.Next(); err != nil {
+		t.Fatal(err)
+	}
+
+	if g, e := b2n(k), 110; g != e {
+		t.Fatal(g, e)
+	}
+
+	if g, e := b2n(v), 1100; g != e {
+		t.Fatal(g, e)
+	}
+
 }
