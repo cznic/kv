@@ -692,10 +692,11 @@ func (db *DB) Seek(key []byte) (enum *Enumerator, hit bool, err error) {
 	return
 }
 
-// SeekFirst returns an enumerator positioned on the first KV pair in the tree,
-// if any. For an empty tree, err == io.EOF is returend.
+// SeekFirst returns an enumerator positioned on the first KV pair in the DB,
+// if any. For an empty DB, err == io.EOF is returend.
 //
-// SeekFirst is atomic and it is safe for concurrent use by multiple goroutines.
+// SeekFirst is atomic and it is safe for concurrent use by multiple
+// goroutines.
 func (db *DB) SeekFirst() (enum *Enumerator, err error) {
 	if err = db.enter(); err != nil {
 		return
