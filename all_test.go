@@ -113,6 +113,7 @@ func TestClose(t *testing.T) {
 	defer func(n string) {
 		db.Close()
 		os.Remove(n)
+		os.Remove(o._WAL)
 	}(db.Name())
 
 	if err := db.Close(); err != nil {
@@ -136,6 +137,7 @@ func TestName(t *testing.T) {
 	defer func(n string) {
 		db.Close()
 		os.Remove(n)
+		os.Remove(o._WAL)
 	}(db.Name())
 
 	if n := db.Name(); n == "" ||
@@ -157,6 +159,7 @@ func TestSize(t *testing.T) {
 	defer func(n string) {
 		db.Close()
 		os.Remove(n)
+		os.Remove(o._WAL)
 	}(db.Name())
 
 	sz, err := db.Size()
@@ -239,6 +242,7 @@ func TestDelete(t *testing.T) {
 			t.Log(n)
 		case false:
 			os.Remove(n)
+			os.Remove(o._WAL)
 		}
 	}(dbname)
 
@@ -305,6 +309,7 @@ func BenchmarkDelete16(b *testing.B) {
 	defer func(n string) {
 		db.Close()
 		os.Remove(n)
+		os.Remove(o._WAL)
 	}(dbname)
 
 	rng := fc()
@@ -359,6 +364,7 @@ func TestExtract(t *testing.T) {
 			t.Log(n)
 		case false:
 			os.Remove(n)
+			os.Remove(o._WAL)
 		}
 	}(dbname)
 
@@ -437,6 +443,7 @@ func BenchmarkExtract16(b *testing.B) {
 	defer func(n string) {
 		db.Close()
 		os.Remove(n)
+		os.Remove(o._WAL)
 	}(dbname)
 
 	rng := fc()
@@ -483,6 +490,7 @@ func TestFirst(t *testing.T) {
 	defer func(n string) {
 		db.Close()
 		os.Remove(n)
+		os.Remove(o._WAL)
 	}(dbname)
 
 	k, v, err := db.First()
@@ -610,6 +618,7 @@ func BenchmarkFirst16(b *testing.B) {
 	defer func(n string) {
 		db.Close()
 		os.Remove(n)
+		os.Remove(o._WAL)
 	}(dbname)
 
 	rng := fc()
@@ -646,6 +655,7 @@ func TestGet(t *testing.T) {
 			t.Log(n)
 		case false:
 			os.Remove(n)
+			os.Remove(o._WAL)
 		}
 	}(dbname)
 
@@ -710,6 +720,7 @@ func BenchmarkGet16(b *testing.B) {
 	defer func(n string) {
 		db.Close()
 		os.Remove(n)
+		os.Remove(o._WAL)
 	}(dbname)
 
 	rng := fc()
@@ -762,6 +773,7 @@ func TestInc(t *testing.T) {
 			t.Log(n)
 		case false:
 			os.Remove(n)
+			os.Remove(o._WAL)
 		}
 	}(dbname)
 
@@ -842,6 +854,7 @@ func TestInc2(t *testing.T) {
 			t.Log(n)
 		case false:
 			os.Remove(n)
+			os.Remove(o._WAL)
 		}
 	}(dbname)
 
@@ -896,6 +909,7 @@ func BenchmarkInc(b *testing.B) {
 	defer func(n string) {
 		db.Close()
 		os.Remove(n)
+		os.Remove(o._WAL)
 	}(dbname)
 
 	c := make(chan int)
@@ -927,6 +941,7 @@ func TestLast(t *testing.T) {
 	defer func(n string) {
 		db.Close()
 		os.Remove(n)
+		os.Remove(o._WAL)
 	}(dbname)
 
 	k, v, err := db.Last()
@@ -1054,6 +1069,7 @@ func BenchmarkLast16(b *testing.B) {
 	defer func(n string) {
 		db.Close()
 		os.Remove(n)
+		os.Remove(o._WAL)
 	}(dbname)
 
 	rng := fc()
@@ -1090,6 +1106,7 @@ func TestPut(t *testing.T) {
 			t.Log(n)
 		case false:
 			os.Remove(n)
+			os.Remove(o._WAL)
 		}
 	}(dbname)
 
@@ -1158,6 +1175,7 @@ func BenchmarkPut16(b *testing.B) {
 	defer func(n string) {
 		db.Close()
 		os.Remove(n)
+		os.Remove(o._WAL)
 	}(dbname)
 
 	rng := fc()
@@ -1212,6 +1230,7 @@ func TestSet(t *testing.T) {
 			t.Log(n)
 		case false:
 			os.Remove(n)
+			os.Remove(o._WAL)
 		}
 	}(dbname)
 
@@ -1277,6 +1296,7 @@ func BenchmarkSet16(b *testing.B) {
 	defer func(n string) {
 		db.Close()
 		os.Remove(n)
+		os.Remove(o._WAL)
 	}(dbname)
 
 	rng := fc()
@@ -1423,6 +1443,7 @@ func BenchmarkSeek(b *testing.B) {
 	defer func(n string) {
 		db.Close()
 		os.Remove(n)
+		os.Remove(o._WAL)
 	}(dbname)
 
 	rng := fc()
@@ -1471,6 +1492,7 @@ func BenchmarkNext1e3(b *testing.B) {
 	defer func(n string) {
 		db.Close()
 		os.Remove(n)
+		os.Remove(o._WAL)
 	}(dbname)
 
 	for i := 0; i < N; i++ {
