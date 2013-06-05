@@ -510,16 +510,15 @@ func (db *DB) Rollback() (err error) {
 }
 
 // Verify attempts to find any structural errors in DB wrt the organization of
-// it as defined by lldb.Allocator. 'bitmap' is a scratch pad for necessary
-// bookkeeping and will grow to at most to DB size/128 (0,78%). Any problems
-// found are reported to 'log' except non verify related errors like disk read
-// fails etc. If 'log' returns false or the error doesn't allow to (reliably)
-// continue, the verification process is stopped and an error is returned from
-// the Verify function. Passing a nil log works like providing a log function
-// always returning false. Any non-structural errors, like for instance Filer
-// read errors, are NOT reported to 'log', but returned as the Verify's return
-// value, because Verify cannot proceed in such cases. Verify returns nil only
-// if it fully completed verifying DB without detecting any error.
+// it as defined by lldb.Allocator. Any problems found are reported to 'log'
+// except non verify related errors like disk read fails etc. If 'log' returns
+// false or the error doesn't allow to (reliably) continue, the verification
+// process is stopped and an error is returned from the Verify function.
+// Passing a nil log works like providing a log function always returning
+// false. Any non-structural errors, like for instance Filer read errors, are
+// NOT reported to 'log', but returned as the Verify's return value, because
+// Verify cannot proceed in such cases. Verify returns nil only if it fully
+// completed verifying DB without detecting any error.
 //
 // It is recommended to limit the number reported problems by returning false
 // from 'log' after reaching some limit. Huge and corrupted DB can produce an
