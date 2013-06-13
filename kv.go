@@ -89,7 +89,7 @@ func create(f *os.File, filer lldb.Filer, opts *Options, isMem bool) (db *DB, er
 
 	b := [16]byte{byte(magic[0]), byte(magic[1]), byte(magic[2]), byte(magic[3]), 0x00} // ver 0x00
 	if n, err := filer.WriteAt(b[:], 0); n != 16 {
-		return nil, &os.PathError{Op: "dbm.Create.WriteAt", Path: filer.Name(), Err: err}
+		return nil, &os.PathError{Op: "kv.create.WriteAt", Path: filer.Name(), Err: err}
 	}
 
 	db = &DB{f: f, lock: opts.lock}
@@ -112,14 +112,17 @@ func create(f *os.File, filer lldb.Filer, opts *Options, isMem bool) (db *DB, er
 	}()
 
 	if db.alloc, err = lldb.NewAllocator(lldb.NewInnerFiler(filer, 16), &lldb.Options{}); err != nil {
-		return nil, &os.PathError{Op: "dbm.Create", Path: filer.Name(), Err: err}
+		return nil, &os.PathError{Op: "kv.create", Path: filer.Name(), Err: err}
 	}
 
 	db.alloc.Compress = true
 	db.isMem = isMem
 	var h int64
-	db.root, h, err = lldb.CreateBTree(db.alloc, opts.Compare)
-	if err == nil && h != 1 {
+	if db.root, h, err = lldb.CreateBTree(db.alloc, opts.Compare); err != nil {
+		return
+	}
+
+	if h != 1 {
 		panic("internal error")
 	}
 
@@ -198,17 +201,17 @@ func Open(name string, opts *Options) (db *DB, err error) {
 	}
 
 	if sz%16 != 0 {
-		return nil, &os.PathError{Op: "dbm.Open:", Path: name, Err: fmt.Errorf("file size %d(%#x) is not 0 (mod 16)", sz, sz)}
+		return nil, &os.PathError{Op: "kv.Open:", Path: name, Err: fmt.Errorf("file size %d(%#x) is not 0 (mod 16)", sz, sz)}
 	}
 
 	var b [16]byte
 	if n, err := filer.ReadAt(b[:], 0); n != 16 || err != nil {
-		return nil, &os.PathError{Op: "dbm.Open.ReadAt", Path: name, Err: err}
+		return nil, &os.PathError{Op: "kv.Open.ReadAt", Path: name, Err: err}
 	}
 
 	var h header
 	if err = h.rd(b[:]); err != nil {
-		return nil, &os.PathError{Op: "dbm.Open:validate header", Path: name, Err: err}
+		return nil, &os.PathError{Op: "kv.Open:validate header", Path: name, Err: err}
 	}
 
 	db = &DB{f: f, lock: opts.lock}
@@ -219,7 +222,7 @@ func Open(name string, opts *Options) (db *DB, err error) {
 	db.filer = filer
 	switch h.ver {
 	default:
-		return nil, &os.PathError{Op: "dbm.Open", Path: name, Err: fmt.Errorf("unknown dbm file format version %#x", h.ver)}
+		return nil, &os.PathError{Op: "kv.Open", Path: name, Err: fmt.Errorf("unknown/unsupported kv file format version %#x", h.ver)}
 	case 0x00:
 		if _, err = open00(name, db); err != nil {
 			return nil, err
@@ -374,15 +377,11 @@ func (db *DB) leave(err *error) error {
 		panic("internal error")
 	case stDisabled:
 		// nop
-	case stIdle:
-		panic("internal error")
 	case stCollecting:
 		db.acidNest--
 		if db.acidNest == 0 {
 			db.acidState = stIdleArmed
 		}
-	case stIdleArmed:
-		panic("internal error")
 	case stCollectingArmed:
 		db.acidNest--
 		if db.acidNest == 0 {
@@ -802,24 +801,21 @@ retry:
 		}
 
 		canRetry = false
-		switch {
-		default:
-			var hit bool
-			if e.enum, hit, err = e.db.root.Seek(e.key); err != nil {
+		var hit bool
+		if e.enum, hit, err = e.db.root.Seek(e.key); err != nil {
+			e.err = err
+			return
+		}
+
+		if !e.firstHit && hit {
+			err = e.enum.Next()
+			if err != nil {
 				e.err = err
 				return
 			}
-
-			if !e.firstHit && hit {
-				err = e.enum.Next()
-				if err != nil {
-					e.err = err
-					return
-				}
-			}
-
-			goto retry
 		}
+
+		goto retry
 	}
 
 	e.firstHit = false
@@ -853,24 +849,21 @@ retry:
 		}
 
 		canRetry = false
-		switch {
-		default:
-			var hit bool
-			if e.enum, hit, err = e.db.root.Seek(e.key); err != nil {
+		var hit bool
+		if e.enum, hit, err = e.db.root.Seek(e.key); err != nil {
+			e.err = err
+			return
+		}
+
+		if !e.firstHit && hit {
+			err = e.enum.Prev()
+			if err != nil {
 				e.err = err
 				return
 			}
-
-			if !e.firstHit && hit {
-				err = e.enum.Prev()
-				if err != nil {
-					e.err = err
-					return
-				}
-			}
-
-			goto retry
 		}
+
+		goto retry
 	}
 
 	e.firstHit = false
