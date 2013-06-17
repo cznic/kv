@@ -682,10 +682,8 @@ func (db *DB) Seek(key []byte) (enum *Enumerator, hit bool, err error) {
 	}
 
 	enum = &Enumerator{
-		db:       db,
-		enum:     enum0,
-		firstHit: hit,
-		key:      append([]byte(nil), key...),
+		db:   db,
+		enum: enum0,
 	}
 	return
 }
@@ -707,16 +705,9 @@ func (db *DB) SeekFirst() (enum *Enumerator, err error) {
 		return
 	}
 
-	var key []byte
-	if key, _, err = enum0.Current(); err != nil {
-		return
-	}
-
 	enum = &Enumerator{
-		db:       db,
-		enum:     enum0,
-		firstHit: true,
-		key:      append([]byte(nil), key...),
+		db:   db,
+		enum: enum0,
 	}
 	return
 }
@@ -738,16 +729,9 @@ func (db *DB) SeekLast() (enum *Enumerator, err error) {
 		return
 	}
 
-	var key []byte
-	if key, _, err = enum0.Current(); err != nil {
-		return
-	}
-
 	enum = &Enumerator{
-		db:       db,
-		enum:     enum0,
-		firstHit: true,
-		key:      append([]byte(nil), key...),
+		db:   db,
+		enum: enum0,
 	}
 	return
 }
@@ -767,13 +751,14 @@ func (db *DB) Set(key, value []byte) (err error) {
 }
 
 // Enumerator captures the state of enumerating a DB. It is returned from the
-// Seek* methods. Multiple enumerations may be in progress simultaneously.
+// Seek* methods. Multiple enumerations may be in progress simultaneously.  The
+// enumerator is aware of any mutations made to the tree in the process of
+// enumerating it and automatically resumes the enumeration.
+//
+// Multiple consurrently executing enumerations may be in progress.
 type Enumerator struct {
-	db       *DB
-	enum     *lldb.BTreeEnumerator
-	err      error
-	key      []byte
-	firstHit bool
+	db   *DB
+	enum *lldb.BTreeEnumerator
 }
 
 // Next returns the currently enumerated KV pair, if it exists and moves to the
@@ -787,41 +772,7 @@ func (e *Enumerator) Next() (key, value []byte, err error) {
 	}
 
 	defer e.db.leave(&err)
-
-	if err = e.err; err != nil {
-		return
-	}
-
-	canRetry := true
-retry:
-	if key, value, err = e.enum.Current(); err != nil {
-		if _, ok := err.(*lldb.ErrINVAL); !ok || !canRetry {
-			e.err = err
-			return
-		}
-
-		canRetry = false
-		var hit bool
-		if e.enum, hit, err = e.db.root.Seek(e.key); err != nil {
-			e.err = err
-			return
-		}
-
-		if !e.firstHit && hit {
-			err = e.enum.Next()
-			if err != nil {
-				e.err = err
-				return
-			}
-		}
-
-		goto retry
-	}
-
-	e.firstHit = false
-	e.key = append([]byte(nil), key...)
-	e.err = e.enum.Next()
-	return
+	return e.enum.Next()
 }
 
 // Prev returns the currently enumerated KV pair, if it exists and moves to the
@@ -835,41 +786,7 @@ func (e *Enumerator) Prev() (key, value []byte, err error) {
 	}
 
 	defer e.db.leave(&err)
-
-	if err = e.err; err != nil {
-		return
-	}
-
-	canRetry := true
-retry:
-	if key, value, err = e.enum.Current(); err != nil {
-		if _, ok := err.(*lldb.ErrINVAL); !ok || !canRetry {
-			e.err = err
-			return
-		}
-
-		canRetry = false
-		var hit bool
-		if e.enum, hit, err = e.db.root.Seek(e.key); err != nil {
-			e.err = err
-			return
-		}
-
-		if !e.firstHit && hit {
-			err = e.enum.Prev()
-			if err != nil {
-				e.err = err
-				return
-			}
-		}
-
-		goto retry
-	}
-
-	e.firstHit = false
-	e.key = append([]byte(nil), key...)
-	e.err = e.enum.Prev()
-	return
+	return e.enum.Prev()
 }
 
 // Inc atomically increments the value associated with key by delta and

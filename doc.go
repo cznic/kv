@@ -6,7 +6,7 @@
 
 Package kv implements a simple and easy to use persistent key/value (KV) store.
 
-The stored KV pairs are sorted in the collation order defined by an user
+The stored KV pairs are sorted in the key collation order defined by an user
 supplied 'compare' function (passed as a field in Options).
 
 Keys and Values
