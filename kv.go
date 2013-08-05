@@ -54,6 +54,7 @@ type DB struct {
 	lastCommitErr error         // from failed EndUpdate
 	lock          *os.File      // The DB file lock
 	root          *lldb.BTree   // The KV layer
+	wal           *os.File      // WAL is any
 }
 
 // Create creates the named DB file mode 0666 (before umask). The file must not
@@ -126,6 +127,7 @@ func create(f *os.File, filer lldb.Filer, opts *Options, isMem bool) (db *DB, er
 		panic("internal error")
 	}
 
+	db.wal = opts.wal
 	return db, db.boot()
 }
 
@@ -230,6 +232,7 @@ func Open(name string, opts *Options) (db *DB, err error) {
 	}
 
 	db.root, err = lldb.OpenBTree(db.alloc, opts.Compare, 1)
+	db.wal = opts.wal
 	return
 }
 
@@ -245,6 +248,7 @@ func (db *DB) Close() (err error) {
 
 	doLeave := true
 	defer func() {
+		db.wal = nil
 		if e := recover(); e != nil {
 			err = fmt.Errorf("%v", e)
 		}
@@ -822,4 +826,14 @@ func (db *DB) Inc(key []byte, delta int64) (val int64, err error) {
 	)
 
 	return
+}
+
+// WALName returns the name of the WAL file in use or an empty string for memory
+// or closed databases.
+func (db *DB) WALName() string {
+	if f := db.wal; f != nil {
+		return f.Name()
+	}
+
+	return ""
 }

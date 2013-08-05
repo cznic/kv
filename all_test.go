@@ -1773,3 +1773,38 @@ func TestSeekLast(t *testing.T) {
 	}
 
 }
+
+func TestWALName(t *testing.T) {
+	db, err := CreateTemp("", "kv-wal-name", ".test", &Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer func(n, wn string) {
+		if _, err := os.Stat(n); err != nil {
+			t.Error(err)
+		} else {
+			if err := os.Remove(n); err != nil {
+				t.Error(err)
+			}
+		}
+		if _, err := os.Stat(wn); err != nil {
+			t.Error(err)
+		} else {
+			if err := os.Remove(wn); err != nil {
+				t.Error(err)
+			}
+		}
+		t.Logf("%q\n%q", n, wn)
+
+	}(db.Name(), db.WALName())
+
+	if err := db.Close(); err != nil {
+		t.Error(err)
+		return
+	}
+
+	if n := db.WALName(); n != "" {
+		t.Error(n)
+	}
+}
