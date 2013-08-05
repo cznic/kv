@@ -54,7 +54,7 @@ type DB struct {
 	lastCommitErr error         // from failed EndUpdate
 	lock          *os.File      // The DB file lock
 	root          *lldb.BTree   // The KV layer
-	wal           *os.File      // WAL is any
+	wal           *os.File      // WAL if any
 }
 
 // Create creates the named DB file mode 0666 (before umask). The file must not
