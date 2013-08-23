@@ -64,6 +64,7 @@ type DB struct {
 //
 // For the meaning of opts please see documentation of Options.
 func Create(name string, opts *Options) (db *DB, err error) {
+	opts = opts.clone()
 	opts._ACID = _ACIDFull
 	f, err := os.OpenFile(name, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0666)
 	if err != nil {
@@ -137,6 +138,7 @@ func create(f *os.File, filer lldb.Filer, opts *Options, isMem bool) (db *DB, er
 //
 // For the meaning of opts please see documentation of Options.
 func CreateMem(opts *Options) (db *DB, err error) {
+	opts = opts.clone()
 	opts._ACID = _ACIDTransactions
 	f := lldb.NewMemFiler()
 	return create(nil, f, opts, true)
@@ -152,6 +154,7 @@ func CreateMem(opts *Options) (db *DB, err error) {
 //
 // For the meaning of opts please see documentation of Options.
 func CreateTemp(dir, prefix, suffix string, opts *Options) (db *DB, err error) {
+	opts = opts.clone()
 	opts._ACID = _ACIDFull
 	f, err := fileutil.TempFile(dir, prefix, suffix)
 	if err != nil {
@@ -170,6 +173,7 @@ func CreateTemp(dir, prefix, suffix string, opts *Options) (db *DB, err error) {
 //
 // For the meaning of opts please see documentation of Options.
 func Open(name string, opts *Options) (db *DB, err error) {
+	opts = opts.clone()
 	opts._ACID = _ACIDFull
 	defer func() {
 		lock := opts.lock

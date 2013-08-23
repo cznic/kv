@@ -99,6 +99,16 @@ type Options struct {
 	_GracePeriod time.Duration
 	wal          *os.File
 	lock         *os.File
+
+	noClone bool // test hook
+}
+
+func (o *Options) clone() *Options {
+	if o.noClone {
+		return o
+	}
+
+	return &Options{Compare: o.Compare}
 }
 
 func (o *Options) check(dbname string, new, lock bool) (err error) {
