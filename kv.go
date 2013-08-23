@@ -672,9 +672,12 @@ func (db *DB) Put(dst, key []byte, upd func(key, old []byte) (new []byte, write 
 	return
 }
 
-// Seek returns an enumerator with "position" or an error if any. Normally the
-// position is on a KV pair such that key >= KV.key. Then hit is key == KV.key.
-// The position is possibly "after" the last KV pair, but that is not an error.
+// Seek returns an enumerator or an error if any. Normally the enumerator is
+// positioned on a KV pair such that 'key' >= KV.key and 'hit' is key ==
+// KV.key.  If 'key' collates after any existing key in the DB then the
+// enumerator's position is effectively "after" the last KV pair, but that is
+// not an error.  However, such enumerator will return err set to io.EOF from
+// its Next/Prev methods.
 //
 // Seek is atomic and it is safe for concurrent use by multiple goroutines.
 func (db *DB) Seek(key []byte) (enum *Enumerator, hit bool, err error) {
@@ -697,7 +700,7 @@ func (db *DB) Seek(key []byte) (enum *Enumerator, hit bool, err error) {
 }
 
 // SeekFirst returns an enumerator positioned on the first KV pair in the DB,
-// if any. For an empty DB, err == io.EOF is returend.
+// if any. For an empty DB, err == io.EOF is returned.
 //
 // SeekFirst is atomic and it is safe for concurrent use by multiple
 // goroutines.
@@ -721,7 +724,7 @@ func (db *DB) SeekFirst() (enum *Enumerator, err error) {
 }
 
 // SeekLast returns an enumerator positioned on the last KV pair in the DB,
-// if any. For an empty DB, err == io.EOF is returend.
+// if any. For an empty DB, err == io.EOF is returned.
 //
 // SeekLast is atomic and it is safe for concurrent use by multiple
 // goroutines.
@@ -763,7 +766,7 @@ func (db *DB) Set(key, value []byte) (err error) {
 // enumerator is aware of any mutations made to the tree in the process of
 // enumerating it and automatically resumes the enumeration.
 //
-// Multiple consurrently executing enumerations may be in progress.
+// Multiple concurrently executing enumerations may be in progress.
 type Enumerator struct {
 	db   *DB
 	enum *lldb.BTreeEnumerator
