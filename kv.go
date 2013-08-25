@@ -7,6 +7,7 @@ package kv
 import (
 	"encoding/binary"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"sync"
@@ -52,7 +53,7 @@ type DB struct {
 	gracePeriod   time.Duration // WAL grace period
 	isMem         bool          // No signal capture
 	lastCommitErr error         // from failed EndUpdate
-	lock          *os.File      // The DB file lock
+	lock          io.Closer     // The DB file lock
 	root          *lldb.BTree   // The KV layer
 	wal           *os.File      // WAL if any
 }
@@ -78,9 +79,7 @@ func create(f *os.File, filer lldb.Filer, opts *Options, isMem bool) (db *DB, er
 	defer func() {
 		lock := opts.lock
 		if err != nil && lock != nil {
-			n := lock.Name()
 			lock.Close()
-			os.Remove(n)
 			db = nil
 		}
 	}()
@@ -178,9 +177,7 @@ func Open(name string, opts *Options) (db *DB, err error) {
 	defer func() {
 		lock := opts.lock
 		if err != nil && lock != nil {
-			n := lock.Name()
 			lock.Close()
-			os.Remove(n)
 			db = nil
 		}
 		if err != nil {
@@ -289,14 +286,9 @@ func (db *DB) Close() (err error) {
 	}
 
 	if lock := db.lock; lock != nil {
-		n := lock.Name()
 		e1 := lock.Close()
-		e2 := os.Remove(n)
 		if err == nil {
 			err = e1
-		}
-		if err == nil {
-			err = e2
 		}
 	}
 	return
