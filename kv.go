@@ -672,9 +672,9 @@ func (db *DB) Put(dst, key []byte, upd func(key, old []byte) (new []byte, write 
 	return
 }
 
-// Seek returns an enumerator positioned before on first key/value pair whose
-// key is 'greater than or equal to' the given key. There may be no such pair,
-// in which case the Next,Prev methods of the returned enumerator will always
+// Seek returns an enumerator positioned on the first key/value pair whose key
+// is 'greater than or equal to' the given key. There may be no such pair, in
+// which case the Next,Prev methods of the returned enumerator will always
 // return io.EOF.
 //
 // Seek is atomic and it is safe for concurrent use by multiple goroutines.
