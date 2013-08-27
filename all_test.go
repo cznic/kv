@@ -9,9 +9,11 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math"
 	"os"
 	"path"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -1806,5 +1808,66 @@ func TestWALName(t *testing.T) {
 
 	if n := db.WALName(); n != "" {
 		t.Error(n)
+	}
+}
+
+func TestCreateWithEmptyWAL(t *testing.T) {
+	dir, err := ioutil.TempDir("", "kv-test-create")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer os.RemoveAll(dir)
+	dbName := filepath.Join(dir, "test.db")
+	var o Options
+	walName := o.walName(dbName, "")
+	wal, err := os.Create(walName)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	wal.Close()
+	defer os.Remove(walName)
+
+	db, err := Create(dbName, &Options{})
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	if err = db.Set([]byte("foo"), []byte("bar")); err != nil {
+		t.Error(err)
+	}
+	db.Close()
+}
+
+func TestCreateWithNonEmptyWAL(t *testing.T) {
+	dir, err := ioutil.TempDir("", "kv-test-create")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer os.RemoveAll(dir)
+	dbName := filepath.Join(dir, "test.db")
+	var o Options
+	walName := o.walName(dbName, "")
+	wal, err := os.Create(walName)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	if n, err := wal.Write([]byte{0}); n != 1 || err != nil {
+		t.Error(n, err)
+		return
+	}
+
+	wal.Close()
+	defer os.Remove(walName)
+
+	if _, err = Create(dbName, &Options{}); err == nil {
+		t.Error("Unexpected success")
+		return
 	}
 }
