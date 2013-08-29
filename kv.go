@@ -291,6 +291,13 @@ func (db *DB) Close() (err error) {
 			err = e1
 		}
 	}
+	if wal := db.wal; wal != nil {
+		e := wal.Close()
+		db.wal = nil
+		if err == nil {
+			err = e
+		}
+	}
 	return
 }
 
