@@ -8,7 +8,6 @@ import (
 	"encoding/binary"
 	"flag"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"math"
 	"os"
@@ -19,6 +18,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/cznic/fileutil"
 	"github.com/cznic/mathutil"
 )
 
@@ -1395,7 +1395,7 @@ func TestSeekNext(t *testing.T) {
 
 				k, v, err := en.Next()
 				if err != nil {
-					if err != io.EOF {
+					if !fileutil.IsEOF(err) {
 						t.Fatal(i, err)
 					}
 
@@ -1489,7 +1489,7 @@ func TestSeekPrev(t *testing.T) {
 
 				k, v, err := en.Prev()
 				if err != nil {
-					if err != io.EOF {
+					if !fileutil.IsEOF(err) {
 						t.Fatal(i, err)
 					}
 
