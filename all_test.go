@@ -149,8 +149,8 @@ func TestName(t *testing.T) {
 
 	if n := db.Name(); n == "" ||
 		!strings.Contains(n, "_testdata") ||
-		!strings.HasPrefix(path.Base(n), "temp") ||
-		!strings.HasSuffix(path.Base(n), ".db") ||
+		!strings.HasPrefix(filepath.Base(n), "temp") ||
+		!strings.HasSuffix(filepath.Base(n), ".db") ||
 		path.Base(n) == "temp.db" {
 		t.Error(n)
 	}
