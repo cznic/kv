@@ -17,7 +17,7 @@ Usage:
 Options:
 
 	-max	maximum number of errors to report. Default 10.	The actual
-		number of reporetd errors, if any, may be less 	because many
+		number of reporetd errors, if any, may be less because many
 		errors do not allow to reliably continue the audit.
 	
 	-v	List every error in addition to the overall one.
@@ -35,7 +35,7 @@ Known Issues
 
 In this first release there's no file locking checked or enforced. The auditing
 process will _not_ write to the DB, so this cannot introduce a DB corruption
-(it's opened R/O mode anyway).  However, if the DB is opened and updated by
+(it's opened in R/O mode anyway).  However, if the DB is opened and updated by
 another process, the reported errors may be caused only by the updates.
 
 In other words, to use this initial version properly, you must manually ensure
