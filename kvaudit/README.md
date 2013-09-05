@@ -1,4 +1,4 @@
-kvuudit
+kvaudit
 =======
 
 Command kvaudit verifies kv databases.
