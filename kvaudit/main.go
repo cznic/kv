@@ -17,9 +17,9 @@ Usage:
 Options:
 
 	-max	maximum number of errors to report. Default 10.	The actual
-		number of reporetd errors, if any, may be less because many
+		number of reported errors, if any, may be less because many
 		errors do not allow to reliably continue the audit.
-	
+
 	-v	List every error in addition to the overall one.
 
 Arguments:
