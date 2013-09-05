@@ -8,7 +8,7 @@ Command kvaudit verifies kv databases.
 
 Instalation:
 
-    $ go install github.com/cznic/kvaudit
+    $ go install github.com/cznic/kv/kvaudit
 
 Usage:
 
