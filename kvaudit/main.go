@@ -12,7 +12,7 @@ Instalation:
 
 Usage:
 
-    kvaudit [-max n] [-v] file
+    kvaudit [-max n] [-v] [-s] file
 
 Options:
 
@@ -21,6 +21,8 @@ Options:
 		errors do not allow to reliably continue the audit.
 
 	-v	List every error in addition to the overall one.
+
+	-s	List DB statistics
 
 Arguments:
 
@@ -69,6 +71,7 @@ func null(s string, a ...interface{}) {}
 func main() {
 	oMax := flag.Uint("max", 10, "Errors reported limit.")
 	oVerbose := flag.Bool("v", false, "Verbose mode.")
+	oStat := flag.Bool("s", false, "Show DB stats.")
 	flag.Parse()
 
 	if flag.NArg() != 1 {
@@ -81,13 +84,13 @@ func main() {
 		r = null
 	}
 
-	if err := main0(flag.Arg(0), int(*oMax), r); err != nil {
+	if err := main0(flag.Arg(0), int(*oMax), r, *oStat); err != nil {
 		fmt.Fprintf(os.Stderr, "kvaudit: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func main0(fn string, oMax int, w func(s string, a ...interface{})) error {
+func main0(fn string, oMax int, w func(s string, a ...interface{}), oStat bool) error {
 	f, err := os.Open(fn) // O_RDONLY
 	if err != nil {
 		return err
@@ -108,9 +111,14 @@ func main0(fn string, oMax int, w func(s string, a ...interface{})) error {
 	}
 
 	cnt := 0
-	return a.Verify(lldb.NewSimpleFileFiler(bits), func(err error) bool {
+	var stats lldb.AllocStats
+	err = a.Verify(lldb.NewSimpleFileFiler(bits), func(err error) bool {
 		cnt++
 		w("%d: %v\n", cnt, err)
 		return cnt < oMax
-	}, nil)
+	}, &stats)
+	if oStat {
+		w("%#v", &stats)
+	}
+	return err
 }
