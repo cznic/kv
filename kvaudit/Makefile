@@ -1,6 +1,7 @@
 all: editor
 	go vet
 	go install
+	go clean
 	make todo
 
 editor:
@@ -16,7 +17,7 @@ todo:
 	@grep -n BUG *.go || true
 
 clean:
-	rm -f *~ cov cov.html _testdata/temp*
+	go clean
 
 gocov:
 	gocov test $(COV) | gocov-html > cov.html

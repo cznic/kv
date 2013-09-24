@@ -12,17 +12,23 @@ Instalation:
 
 Usage:
 
-    kvaudit [-max n] [-v] [-s] file
+    kvaudit [-d] [-f key] [-l key] [-max n] [-s] [-v] file
 
 Options:
+
+	-d	dump file to stdout in cdbmake[2] format even for empty -f and -l.
+
+	-f key	dump from key, first existing if empty
+
+	-l key	dump to key, last existing if empty
 
 	-max	maximum number of errors to report. Default 10.	The actual
 		number of reported errors, if any, may be less because many
 		errors do not allow to reliably continue the audit.
 
-	-v	List every error in addition to the overall one.
-
 	-s	List DB statistics
+
+	-v	List every error in addition to the overall one.
 
 Arguments:
 
@@ -41,7 +47,7 @@ process will _not_ write to the DB, so this cannot introduce a DB corruption
 another process, the reported errors may be caused only by the updates.
 
 In other words, to use this initial version properly, you must manually ensure
-that the audited database is not being updated by other processes.
+that the audited database is not being updated by any other process.
 
 Links
 
@@ -49,13 +55,17 @@ Referenced from above:
 
   [0]: http://godoc.org/github.com/cznic/exp/lldb#Allocator.Verify
   [1]: https://code.google.com/p/camlistore/issues/detail?id=216
+  [2]: http://cr.yp.to/cdb/cdbmake.html
 
 */
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 
@@ -69,9 +79,12 @@ func rep(s string, a ...interface{}) {
 func null(s string, a ...interface{}) {}
 
 func main() {
+	oDump := flag.Bool("d", false, "send a cdbmake formatted dump to stdout even if -f and -l is empty")
+	oFirst := flag.String("f", "", "first key to dump (if non empty)")
+	oLast := flag.String("l", "", "last key to dump (if non empty)")
 	oMax := flag.Uint("max", 10, "Errors reported limit.")
-	oVerbose := flag.Bool("v", false, "Verbose mode.")
 	oStat := flag.Bool("s", false, "Show DB stats.")
+	oVerbose := flag.Bool("v", false, "Verbose mode.")
 	flag.Parse()
 
 	if flag.NArg() != 1 {
@@ -79,18 +92,22 @@ func main() {
 		os.Exit(1)
 	}
 
+	if *oStat {
+		*oVerbose = true
+	}
+
 	r := rep
 	if !*oVerbose {
 		r = null
 	}
 
-	if err := main0(flag.Arg(0), int(*oMax), r, *oStat); err != nil {
+	if err := main0(flag.Arg(0), int(*oMax), r, *oStat, *oFirst, *oLast, *oDump); err != nil {
 		fmt.Fprintf(os.Stderr, "kvaudit: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func main0(fn string, oMax int, w func(s string, a ...interface{}), oStat bool) error {
+func main0(fn string, oMax int, w func(s string, a ...interface{}), oStat bool, first, last string, dump bool) error {
 	f, err := os.Open(fn) // O_RDONLY
 	if err != nil {
 		return err
@@ -118,7 +135,59 @@ func main0(fn string, oMax int, w func(s string, a ...interface{}), oStat bool) 
 		return cnt < oMax
 	}, &stats)
 	if oStat {
-		w("%#v", &stats)
+		w("%#v\n", &stats)
 	}
-	return err
+	if err != nil {
+		return err
+	}
+
+	if !(first != "" || last != "" || dump) {
+		return nil
+	}
+
+	t, err := lldb.OpenBTree(a, nil, 1)
+	if err != nil {
+		return err
+	}
+
+	dw := bufio.NewWriter(os.Stdout)
+	defer dw.Flush()
+
+	var e *lldb.BTreeEnumerator
+	switch {
+	case first != "":
+		e, _, err = t.Seek([]byte(first))
+	default:
+		e, err = t.SeekFirst()
+	}
+	if err != nil {
+		if err == io.EOF {
+			err = nil
+		}
+		return err
+	}
+
+	blast := []byte(last)
+	sep := []byte("->")
+	for {
+		k, v, err := e.Next()
+		if err != nil {
+			if err == io.EOF {
+				err = nil
+			}
+			return err
+		}
+
+		dw.WriteString(fmt.Sprintf("+%d,%d:", len(k), len(v)))
+		dw.Write(k)
+		dw.Write(sep)
+		dw.Write(v)
+		dw.WriteByte('\n')
+
+		if len(blast) != 0 && bytes.Compare(k, blast) >= 0 {
+			break
+		}
+	}
+
+	return nil
 }
