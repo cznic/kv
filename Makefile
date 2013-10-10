@@ -1,3 +1,5 @@
+.PHONY: all editor todo clean nuke
+
 all: editor
 	go build
 	go vet
@@ -16,7 +18,5 @@ todo:
 	@grep -n BUG *.go || true
 
 clean:
+	go clean
 	rm -f *~ cov cov.html _testdata/temp*
-
-gocov:
-	gocov test $(COV) | gocov-html > cov.html
