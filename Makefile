@@ -20,3 +20,6 @@ todo:
 clean:
 	go clean
 	rm -f *~ cov cov.html _testdata/temp*
+
+nuke: clean
+	go clean -i
