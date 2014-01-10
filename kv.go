@@ -241,8 +241,16 @@ func Open(name string, opts *Options) (db *DB, err error) {
 // any. Failing to call Close before exiting a program can lose the last open
 // or being committed transaction.
 //
-// Close is idempotent.
+// Successful Close is idempotent.
 func (db *DB) Close() (err error) {
+	db.closeMu.Lock()
+	defer db.closeMu.Unlock()
+	if db.closed {
+		return
+	}
+
+	db.closed = true
+
 	if err = db.enter(); err != nil {
 		return
 	}
@@ -257,14 +265,6 @@ func (db *DB) Close() (err error) {
 			db.leave(&err)
 		}
 	}()
-
-	if db.closed {
-		return
-	}
-
-	db.closed = true
-	db.closeMu.Lock()
-	defer db.closeMu.Unlock()
 
 	if db.acidTimer != nil {
 		db.acidTimer.Stop()
@@ -302,6 +302,15 @@ func (db *DB) Close() (err error) {
 }
 
 func (db *DB) close() (err error) {
+	// We are safe to close due to locked db.closeMu, but not safe aginst
+	// any other goroutine concurrently calling other exported db methods,
+	// causing a race[0] in the db.enter() mechanism. So we must lock
+	// db.bkl.
+	//
+	//  [0]: https://github.com/cznic/kv/issues/17#issuecomment-31960658
+	db.bkl.Lock()
+	defer db.bkl.Unlock()
+
 	if db.f == nil { // lldb.MemFiler
 		return
 	}
@@ -425,6 +434,8 @@ func (db *DB) timeout() {
 	db.bkl.Lock()
 	defer db.bkl.Unlock()
 
+	db.closeMu.Lock()
+	defer db.closeMu.Unlock()
 	if db.closed {
 		return
 	}
