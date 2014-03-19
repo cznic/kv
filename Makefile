@@ -21,6 +21,8 @@ nuke: clean
 	go clean -i
 todo:
 	@grep -nr $(grep) ^[[:space:]]*_[[:space:]]*=[[:space:]][[:alpha:]][[:alnum:]]* * || true
-	@grep -nrw $(grep) TODO * || true
 	@grep -nrw $(grep) BUG * || true
+	@grep -nrw $(grep) LATER * || true
+	@grep -nrw $(grep) MAYBE * || true
+	@grep -nrw $(grep) TODO * || true
 	@grep -nrw $(grep) println * || true

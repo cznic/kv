@@ -53,8 +53,9 @@ type DB struct {
 	isMem         bool          // No signal capture
 	lastCommitErr error         // from failed EndUpdate
 	lock          io.Closer     // The DB file lock
-	root          *lldb.BTree   // The KV layer
-	wal           *os.File      // WAL if any
+	opts          *Options
+	root          *lldb.BTree // The KV layer
+	wal           *os.File    // WAL if any
 }
 
 // Create creates the named DB file mode 0666 (before umask). The file must not
@@ -75,6 +76,11 @@ func Create(name string, opts *Options) (db *DB, err error) {
 }
 
 func create(f *os.File, filer lldb.Filer, opts *Options, isMem bool) (db *DB, err error) {
+	defer func() {
+		if db != nil {
+			db.opts = opts
+		}
+	}()
 	defer func() {
 		lock := opts.lock
 		if err != nil && lock != nil {
@@ -174,6 +180,11 @@ func Open(name string, opts *Options) (db *DB, err error) {
 	opts = opts.clone()
 	opts._ACID = _ACIDFull
 	defer func() {
+		if db != nil {
+			db.opts = opts
+		}
+	}()
+	defer func() {
 		lock := opts.lock
 		if err != nil && lock != nil {
 			lock.Close()
@@ -233,6 +244,9 @@ func Open(name string, opts *Options) (db *DB, err error) {
 
 	db.root, err = lldb.OpenBTree(db.alloc, opts.Compare, 1)
 	db.wal = opts.wal
+	if opts.VerifyDbAfterOpen {
+		err = verifyAllocator(db.alloc)
+	}
 	return
 }
 
@@ -272,26 +286,31 @@ func (db *DB) Close() (err error) {
 	var e error
 	for db.acidNest > 0 {
 		db.acidNest--
-		if err := db.filer.EndUpdate(); err != nil {
-			e = err
+		if e = db.filer.EndUpdate(); err == nil {
+			err = e
 		}
 	}
-	err = e
 
-	doLeave = false
-	e = db.leave(&err)
-	if err = db.close(); err == nil {
-		err = e
+	if db.opts.VerifyDbBeforeClose {
+		if e = verifyAllocator(db.alloc); err == nil {
+			err = e
+		}
 	}
 
+	doLeave = false
+	if e = db.leave(&err); err == nil {
+		err = e
+	}
+	if e = db.close(); err == nil {
+		err = e
+	}
 	if lock := db.lock; lock != nil {
-		e1 := lock.Close()
-		if err == nil {
-			err = e1
+		if e = lock.Close(); err == nil {
+			err = e
 		}
 	}
 	if wal := db.wal; wal != nil {
-		e := wal.Close()
+		e = wal.Close()
 		db.wal = nil
 		if err == nil {
 			err = e
@@ -315,8 +334,13 @@ func (db *DB) close() (err error) {
 	}
 
 	err = db.filer.Sync()
-	if err2 := db.filer.Close(); err2 != nil && err == nil {
-		err = err2
+	if e := db.filer.Close(); err == nil {
+		err = e
+	}
+	if db.opts.VerifyDbAfterClose {
+		if e := verifyDbFile(db.Name()); err == nil {
+			err = e
+		}
 	}
 	return
 }
