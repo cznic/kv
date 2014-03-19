@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/signal"
 	"sync"
 	"time"
 
@@ -128,7 +127,7 @@ func create(f *os.File, filer lldb.Filer, opts *Options, isMem bool) (db *DB, er
 	}
 
 	db.wal = opts.wal
-	return db, db.boot()
+	return
 }
 
 // CreateMem creates a new instance of an in-memory DB not backed by a disk
@@ -341,18 +340,6 @@ func (db *DB) Size() (sz int64, err error) {
 	}()
 
 	return db.filer.Size()
-}
-
-func (db *DB) boot() (err error) {
-	if !db.isMem {
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, os.Interrupt, os.Kill)
-		go func() {
-			<-c
-			db.Close()
-		}()
-	}
-	return
 }
 
 func (db *DB) enter() (err error) {
