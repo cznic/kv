@@ -291,15 +291,14 @@ func (db *DB) Close() (err error) {
 		}
 	}
 
+	doLeave = false
+	if e = db.leave(&err); err == nil {
+		err = e
+	}
 	if db.opts.VerifyDbBeforeClose {
 		if e = verifyAllocator(db.alloc); err == nil {
 			err = e
 		}
-	}
-
-	doLeave = false
-	if e = db.leave(&err); err == nil {
-		err = e
 	}
 	if e = db.close(); err == nil {
 		err = e

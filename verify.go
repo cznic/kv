@@ -18,7 +18,12 @@ func verifyAllocator(a *lldb.Allocator) error {
 		return err
 	}
 
-	defer bits.Close()
+	defer func() {
+		nm := bits.Name()
+		bits.Close()
+		os.Remove(nm)
+	}()
+
 	var lerr error
 	if err = a.Verify(
 		lldb.NewSimpleFileFiler(bits),

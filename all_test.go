@@ -8,12 +8,14 @@ import (
 	"encoding/binary"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"math"
 	"os"
 	"path"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"testing"
@@ -24,7 +26,10 @@ import (
 
 const sz0 = 144 // size of an empty KV DB
 
-var oKeep = flag.Bool("keep", false, "do not delete test DB (some tests)")
+var (
+	oDB   = flag.String("db", "", "DB to use in BenchmarkEnumerateDB")
+	oKeep = flag.Bool("keep", false, "do not delete test DB (some tests)")
+)
 
 func dbg(s string, va ...interface{}) {
 	_, fn, fl, _ := runtime.Caller(1)
@@ -1881,4 +1886,67 @@ func TestCreateWithNonEmptyWAL(t *testing.T) {
 		t.Error("Unexpected success")
 		return
 	}
+}
+
+var benchmarkEnumerateDBOnce sync.Once
+
+func BenchmarkEnumerateDB(b *testing.B) {
+	g := runtime.GOMAXPROCS(0)
+	defer runtime.GOMAXPROCS(g)
+	var db *DB
+	var err error
+	switch nm := *oDB; {
+	case nm != "":
+		db, err = Open(nm, &Options{
+			VerifyDbBeforeOpen:  true,
+			VerifyDbAfterOpen:   true,
+			VerifyDbBeforeClose: true,
+			VerifyDbAfterClose:  true,
+		})
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		defer db.Close()
+	default:
+		db, err = CreateMem(&Options{})
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		for i := 0; i < 1e3; i++ {
+			if err := db.Set(n2b(i), n2b(i)); err != nil {
+				b.Fatal(err)
+			}
+		}
+	}
+
+	var n int
+	debug.FreeOSMemory()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		n = 0
+		en, err := db.SeekFirst()
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		for {
+			_, _, err := en.Next()
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+
+				b.Fatal(err)
+			}
+
+			n++
+		}
+	}
+	b.StopTimer()
+	benchmarkEnumerateDBOnce.Do(func() {
+		b.Logf("%d keys using %s", n, db.Name())
+	})
+
 }
