@@ -1888,8 +1888,6 @@ func TestCreateWithNonEmptyWAL(t *testing.T) {
 	}
 }
 
-var benchmarkEnumerateDBOnce sync.Once
-
 func BenchmarkEnumerateDB(b *testing.B) {
 	g := runtime.GOMAXPROCS(0)
 	defer runtime.GOMAXPROCS(g)
@@ -1945,8 +1943,4 @@ func BenchmarkEnumerateDB(b *testing.B) {
 		}
 	}
 	b.StopTimer()
-	benchmarkEnumerateDBOnce.Do(func() {
-		b.Logf("%d keys using %s", n, db.Name())
-	})
-
 }
