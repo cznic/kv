@@ -16,6 +16,8 @@ Usage:
 
 Options:
 
+	-b	analyze allocated/free blocks sizes vs FLT buckets
+
 	-d	dump file to stdout in cdbmake[2] format even for empty -f and -l.
 
 	-f key	dump from key, first existing if empty
@@ -79,12 +81,13 @@ func rep(s string, a ...interface{}) {
 func null(s string, a ...interface{}) {}
 
 func main() {
+	oBuckets := flag.Bool("b", false, "show FLT buckets analysis")
 	oDump := flag.Bool("d", false, "send a cdbmake formatted dump to stdout even if -f and -l is empty")
 	oFirst := flag.String("f", "", "first key to dump (if non empty)")
 	oLast := flag.String("l", "", "last key to dump (if non empty)")
-	oMax := flag.Uint("max", 10, "Errors reported limit.")
-	oStat := flag.Bool("s", false, "Show DB stats.")
-	oVerbose := flag.Bool("v", false, "Verbose mode.")
+	oMax := flag.Uint("max", 10, "errors reported limit.")
+	oStat := flag.Bool("s", false, "show DB stats.")
+	oVerbose := flag.Bool("v", false, "verbose mode.")
 	flag.Parse()
 
 	if flag.NArg() != 1 {
@@ -101,13 +104,14 @@ func main() {
 		r = null
 	}
 
-	if err := main0(flag.Arg(0), int(*oMax), r, *oStat, *oFirst, *oLast, *oDump); err != nil {
+	if err := main0(flag.Arg(0), int(*oMax), r, *oStat, *oFirst, *oLast,
+		*oDump, *oBuckets); err != nil {
 		fmt.Fprintf(os.Stderr, "kvaudit: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func main0(fn string, oMax int, w func(s string, a ...interface{}), oStat bool, first, last string, dump bool) error {
+func main0(fn string, oMax int, w func(s string, a ...interface{}), oStat bool, first, last string, dump bool, oBuckets bool) error {
 	f, err := os.Open(fn) // O_RDONLY
 	if err != nil {
 		return err
@@ -134,11 +138,57 @@ func main0(fn string, oMax int, w func(s string, a ...interface{}), oStat bool, 
 		w("%d: %v\n", cnt, err)
 		return cnt < oMax
 	}, &stats)
-	if oStat {
-		w("%#v\n", &stats)
-	}
 	if err != nil {
 		return err
+	}
+
+	if oStat {
+		//TODO- w("%#v\n", &stats)
+		w("Handles     %10d  // total valid handles in use\n", stats.Handles)
+		w("Compression %10d  // number of compressed blocks\n", stats.Compression)
+		w("TotalAtoms  %10d  // total number of atoms == AllocAtoms + FreeAtoms\n", stats.TotalAtoms)
+		w("AllocBytes  %10d  // bytes allocated (after decompression, if/where used)\n", stats.AllocBytes)
+		w("AllocAtoms  %10d  // atoms allocated/used, including relocation atoms\n", stats.AllocAtoms)
+		w("Relocations %10d  // number of relocated used blocks\n", stats.Relocations)
+		w("FreeAtoms   %10d  // atoms unused\n", stats.FreeAtoms)
+	}
+	if oBuckets {
+		var alloc, free [14]int64
+		sizes := [14]int64{1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 4112}
+		for atoms, cnt := range stats.AllocMap {
+			if atoms >= 4096 {
+				alloc[13] += cnt
+				continue
+			}
+
+			for i := range sizes {
+				if sizes[i+1] > atoms {
+					alloc[i] += cnt
+					break
+				}
+			}
+		}
+		for atoms, cnt := range stats.FreeMap {
+			if atoms > 4096 {
+				free[13] += cnt
+				continue
+			}
+
+			for i := range sizes {
+				if sizes[i+1] > atoms {
+					free[i] += cnt
+					break
+				}
+			}
+		}
+		w("Alloc blocks\n")
+		for i, v := range alloc {
+			w("%4d: %10d\n", sizes[i], v)
+		}
+		w("Free blocks\n")
+		for i, v := range free {
+			w("%4d: %10d\n", sizes[i], v)
+		}
 	}
 
 	if !(first != "" || last != "" || dump) {
