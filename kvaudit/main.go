@@ -124,7 +124,11 @@ func main0(fn string, oMax int, w func(s string, a ...interface{}), oStat bool, 
 		return err
 	}
 
-	defer bits.Close()
+	defer func() {
+		nm := bits.Name()
+		bits.Close()
+		os.Remove(nm)
+	}()
 
 	a, err := lldb.NewAllocator(lldb.NewInnerFiler(lldb.NewSimpleFileFiler(f), 16), &lldb.Options{})
 	if err != nil {

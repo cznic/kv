@@ -558,7 +558,7 @@ func (db *DB) Rollback() (err error) {
 // only if Verify succeeded, ie. it didn't reported anything to log and it
 // returned a nil error.
 func (db *DB) Verify(log func(error) bool, stats *lldb.AllocStats) (err error) {
-	bitmapf, err := fileutil.TempFile(".", "verifier", ".tmp")
+	bitmapf, err := fileutil.TempFile("", "verifier", ".tmp")
 	if err != nil {
 		return
 	}
