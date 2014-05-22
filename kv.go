@@ -438,14 +438,14 @@ func (db *DB) leave(err *error) error {
 }
 
 func (db *DB) timeout() {
-	db.bkl.Lock()
-	defer db.bkl.Unlock()
-
 	db.closeMu.Lock()
 	defer db.closeMu.Unlock()
 	if db.closed {
 		return
 	}
+
+	db.bkl.Lock()
+	defer db.bkl.Unlock()
 
 	switch db.acidState {
 	default:
