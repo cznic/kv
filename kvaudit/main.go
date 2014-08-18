@@ -1,4 +1,4 @@
-// Copyright 2013 The Go Authors. All rights reserved.
+// Copyright 2014 The kv Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -147,7 +147,6 @@ func main0(fn string, oMax int, w func(s string, a ...interface{}), oStat bool, 
 	}
 
 	if oStat {
-		//TODO- w("%#v\n", &stats)
 		w("Handles     %10d  // total valid handles in use\n", stats.Handles)
 		w("Compression %10d  // number of compressed blocks\n", stats.Compression)
 		w("TotalAtoms  %10d  // total number of atoms == AllocAtoms + FreeAtoms\n", stats.TotalAtoms)

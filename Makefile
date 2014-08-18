@@ -1,3 +1,7 @@
+# Copyright 2014 The kv Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style
+# license that can be found in the LICENSE file.
+
 .PHONY: all editor todo clean nuke
 
 grep=--include=*.go --include=*.run --include=*.y
@@ -5,6 +9,7 @@ grep=--include=*.go --include=*.run --include=*.y
 all: editor
 	go build
 	go vet
+	golint .
 	go install
 	make todo
 
