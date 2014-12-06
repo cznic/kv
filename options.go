@@ -193,14 +193,18 @@ func (o *Options) check(dbname string, new, lock bool) (err error) {
 		case false:
 			if o.wal, err = os.OpenFile(o._WAL, os.O_RDWR, 0666); err != nil {
 				if os.IsNotExist(err) {
-					err = fmt.Errorf("cannot open DB %q: WAL file %q doesn't exist", dbname, o._WAL)
+					if o.wal, err = os.OpenFile(o._WAL, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0666); err != nil {
+						return fmt.Errorf("cannot open DB %q: failed to create  WAL file %q: %v", dbname, o._WAL, err)
+					}
+
+					err = nil
 				}
-				return
+				return err
 			}
 		}
 	}
 
-	return
+	return err
 }
 
 func (o *Options) walName(dbname, wal string) (r string) {
