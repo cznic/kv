@@ -368,10 +368,14 @@ func (db *DB) enter() (err error) {
 	default:
 		panic("internal error")
 	case stDisabled:
-		// nop
+		if err = db.filer.BeginUpdate(); err != nil {
+			return err
+		}
+
+		db.acidNest = 1
 	case stIdle:
 		if err = db.filer.BeginUpdate(); err != nil {
-			return
+			return err
 		}
 
 		db.acidNest = 1
@@ -390,8 +394,7 @@ func (db *DB) enter() (err error) {
 		return db.leave(&err)
 	}
 
-	err = db.filer.BeginUpdate()
-	return
+	return nil
 }
 
 func (db *DB) leave(err *error) error {
@@ -399,7 +402,13 @@ func (db *DB) leave(err *error) error {
 	default:
 		panic("internal error")
 	case stDisabled:
-		// nop
+		db.acidNest--
+		if db.acidNest == 0 {
+			if e := db.filer.EndUpdate(); e != nil && err == nil {
+				*err = e
+			}
+			db.acidState = stIdle
+		}
 	case stCollecting:
 		db.acidNest--
 		if db.acidNest == 0 {
@@ -423,15 +432,8 @@ func (db *DB) leave(err *error) error {
 		return fmt.Errorf("Last transaction commit failed: %v", db.lastCommitErr)
 	}
 
-	switch {
-	case *err != nil:
+	if *err != nil {
 		db.filer.Rollback() // return the original, input error
-	default:
-		*err = db.filer.EndUpdate()
-		if *err != nil {
-			db.acidState = stEndUpdateFailed
-			db.lastCommitErr = *err
-		}
 	}
 	db.bkl.Unlock()
 	return *err
