@@ -372,7 +372,7 @@ func (db *DB) enter() (err error) {
 			return err
 		}
 
-		db.acidNest = 1
+		db.acidNest++
 	case stIdle:
 		if err = db.filer.BeginUpdate(); err != nil {
 			return err
