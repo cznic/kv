@@ -100,6 +100,7 @@ func create(f *os.File, filer lldb.Filer, opts *Options, isMem bool) (db *DB, er
 
 	db = &DB{f: f, lock: opts.lock}
 
+	filer = lldb.NewInnerFiler(filer, 16)
 	if filer, err = opts.acidFiler(db, filer); err != nil {
 		return nil, err
 	}
@@ -117,7 +118,7 @@ func create(f *os.File, filer lldb.Filer, opts *Options, isMem bool) (db *DB, er
 		}
 	}()
 
-	if db.alloc, err = lldb.NewAllocator(lldb.NewInnerFiler(filer, 16), &lldb.Options{}); err != nil {
+	if db.alloc, err = lldb.NewAllocator(filer, &lldb.Options{}); err != nil {
 		return nil, &os.PathError{Op: "kv.create", Path: filer.Name(), Err: err}
 	}
 
@@ -368,10 +369,15 @@ func (db *DB) enter() (err error) {
 	default:
 		panic("internal error")
 	case stDisabled:
-		// nop
+		db.acidNest++
+		if db.acidNest == 1 {
+			if err = db.filer.BeginUpdate(); err != nil {
+				return err
+			}
+		}
 	case stIdle:
 		if err = db.filer.BeginUpdate(); err != nil {
-			return
+			return err
 		}
 
 		db.acidNest = 1
@@ -390,8 +396,7 @@ func (db *DB) enter() (err error) {
 		return db.leave(&err)
 	}
 
-	err = db.filer.BeginUpdate()
-	return
+	return nil
 }
 
 func (db *DB) leave(err *error) error {
@@ -399,7 +404,12 @@ func (db *DB) leave(err *error) error {
 	default:
 		panic("internal error")
 	case stDisabled:
-		// nop
+		db.acidNest--
+		if db.acidNest == 0 {
+			if e := db.filer.EndUpdate(); e != nil && *err == nil {
+				*err = e
+			}
+		}
 	case stCollecting:
 		db.acidNest--
 		if db.acidNest == 0 {
@@ -413,7 +423,7 @@ func (db *DB) leave(err *error) error {
 	case stCollectingTriggered:
 		db.acidNest--
 		if db.acidNest == 0 {
-			if e := db.filer.EndUpdate(); e != nil && err == nil {
+			if e := db.filer.EndUpdate(); e != nil && *err == nil {
 				*err = e
 			}
 			db.acidState = stIdle
@@ -423,15 +433,8 @@ func (db *DB) leave(err *error) error {
 		return fmt.Errorf("Last transaction commit failed: %v", db.lastCommitErr)
 	}
 
-	switch {
-	case *err != nil:
+	if *err != nil {
 		db.filer.Rollback() // return the original, input error
-	default:
-		*err = db.filer.EndUpdate()
-		if *err != nil {
-			db.acidState = stEndUpdateFailed
-			db.lastCommitErr = *err
-		}
 	}
 	db.bkl.Unlock()
 	return *err
@@ -487,6 +490,7 @@ func (db *DB) BeginTransaction() (err error) {
 		db.leave(&err)
 	}()
 
+	db.acidNest++
 	return db.filer.BeginUpdate()
 }
 
@@ -508,6 +512,7 @@ func (db *DB) Commit() (err error) {
 		db.leave(&err)
 	}()
 
+	db.acidNest--
 	return db.filer.EndUpdate()
 }
 
@@ -530,6 +535,7 @@ func (db *DB) Rollback() (err error) {
 		db.leave(&err)
 	}()
 
+	db.acidNest--
 	return db.filer.Rollback()
 }
 

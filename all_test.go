@@ -220,7 +220,7 @@ func TestSize(t *testing.T) {
 		return
 	}
 
-	if sz != sz0 {
+	if sz != sz0-16 {
 		t.Error(sz, sz0)
 	}
 }

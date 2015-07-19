@@ -10,7 +10,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"time"
 
 	"github.com/cznic/exp/lldb"
@@ -223,21 +222,20 @@ func (o *Options) acidFiler(db *DB, f lldb.Filer) (r lldb.Filer, err error) {
 	default:
 		panic("internal error")
 	case _ACIDTransactions:
-		var rf *lldb.RollbackFiler
-		if rf, err = lldb.NewRollbackFiler(
+		if r, err = lldb.NewRollbackFiler(
 			f,
 			func(sz int64) error {
 				return f.Truncate(sz)
 			},
 			f,
 		); err != nil {
-			return
+			return nil, err
 		}
 
-		r = rf
+		return r, nil
 	case _ACIDFull:
 		if r, err = lldb.NewACIDFiler(f, o.wal); err != nil {
-			return
+			return nil, err
 		}
 
 		db.acidState = stIdle
@@ -245,13 +243,6 @@ func (o *Options) acidFiler(db *DB, f lldb.Filer) (r lldb.Filer, err error) {
 		if o._GracePeriod == 0 {
 			panic("internal error")
 		}
-
-		// Ensure GOMAXPROCS > 1, required for ACID FSM
-		if n := runtime.GOMAXPROCS(0); n > 1 {
-			return
-		}
-
-		runtime.GOMAXPROCS(2)
+		return r, nil
 	}
-	return
 }
