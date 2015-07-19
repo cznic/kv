@@ -247,5 +247,4 @@ func (o *Options) acidFiler(db *DB, f lldb.Filer) (r lldb.Filer, err error) {
 
 		return r, nil
 	}
-	return
 }

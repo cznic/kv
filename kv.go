@@ -831,3 +831,69 @@ func (db *DB) WALName() string {
 
 	return ""
 }
+
+// Enumerator2 is like Enumerator, but with a more convenient usage pattern.
+type Enumerator2 struct {
+	enum *Enumerator
+	err  error
+	k, v []byte
+}
+
+// Next moves to the next element in the enumeration.  It returns false when
+// there are no more entries or if there's an error.
+func (e *Enumerator2) Next() bool {
+	if e.err != nil {
+		return false
+	}
+
+	e.k, e.v, e.err = e.enum.Next()
+	return e.err == nil
+}
+
+// Prev moves to the previous element in the enumeration.  It returns false
+// when there are no more entries or if there's an error.
+func (e *Enumerator2) Prev() bool {
+	if e.err != nil {
+		return false
+	}
+
+	e.k, e.v, e.err = e.enum.Prev()
+	return e.err == nil
+}
+
+// Key returns the key at the current enumerator position.
+func (e *Enumerator2) Key() []byte {
+	return e.k
+}
+
+// Value returns the value at the current enumerator position.
+func (e *Enumerator2) Value() []byte {
+	return e.v
+}
+
+// Err returns any error encountered during the enumeration.
+func (e *Enumerator2) Err() error {
+	if e.err == io.EOF {
+		return nil
+	}
+
+	return e.err
+}
+
+// Seek2 is like Seek, but returns Enumerator2.
+func (db *DB) Seek2(key []byte) (enum *Enumerator2, hit bool) {
+	e, hit, err := db.Seek(key)
+	return &Enumerator2{enum: e, err: err}, hit
+}
+
+// SeekFirst2 is like SeekFirst, but returns Enumerator2.
+func (db *DB) SeekFirst2() *Enumerator2 {
+	e, err := db.SeekFirst()
+	return &Enumerator2{enum: e, err: err}
+}
+
+// SeekLast2 is like SeekLast, but returns Enumerator2.
+func (db *DB) SeekLast2() *Enumerator2 {
+	e, err := db.SeekLast()
+	return &Enumerator2{enum: e, err: err}
+}

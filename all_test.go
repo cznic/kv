@@ -1981,3 +1981,314 @@ func TestIssue24File(t *testing.T) {
 
 	t.Fatalf("%s: %s", k, v)
 }
+
+func TestSeekNext2(t *testing.T) {
+	// seeking within 3 keys: 10, 20, 30
+	table := []struct {
+		k    int
+		hit  bool
+		keys []int
+	}{
+		{5, false, []int{10, 20, 30}},
+		{10, true, []int{10, 20, 30}},
+		{15, false, []int{20, 30}},
+		{20, true, []int{20, 30}},
+		{25, false, []int{30}},
+		{30, true, []int{30}},
+		{35, false, []int{}},
+	}
+
+	for i, test := range table {
+		up := test.keys
+		db, err := CreateMem(opts())
+		if err != nil {
+			t.Fatal(i, err)
+		}
+
+		if err := db.Set(n2b(10), n2b(100)); err != nil {
+			t.Fatal(i, err)
+		}
+
+		if err := db.Set(n2b(20), n2b(200)); err != nil {
+			t.Fatal(i, err)
+		}
+
+		if err := db.Set(n2b(30), n2b(300)); err != nil {
+			t.Fatal(i, err)
+		}
+
+		for brokenSerial := 0; brokenSerial < 16; brokenSerial++ {
+			en, hit := db.Seek2(n2b(test.k))
+			if g, e := hit, test.hit; g != e {
+				t.Fatal(i, g, e)
+			}
+
+			j := 0
+			for {
+				if brokenSerial&(1<<uint(j)) != 0 {
+					if err := db.Set(n2b(20), n2b(200)); err != nil {
+						t.Fatal(i, err)
+					}
+				}
+
+				if !en.Next() {
+					if err := en.Err(); err != nil && !fileutil.IsEOF(err) {
+						t.Fatal(i, err)
+					}
+
+					break
+				}
+
+				k, v := en.Key(), en.Value()
+				if g, e := len(k), 8; g != e {
+					t.Fatal(i, g, e)
+				}
+
+				if j >= len(up) {
+					t.Fatal(i, j, brokenSerial)
+				}
+
+				if g, e := b2n(k), up[j]; g != e {
+					t.Fatal(i, j, brokenSerial, g, e)
+				}
+
+				if g, e := len(v), 8; g != e {
+					t.Fatal(i, g, e)
+				}
+
+				if g, e := b2n(v), 10*up[j]; g != e {
+					t.Fatal(i, g, e)
+				}
+
+				j++
+
+			}
+
+			if g, e := j, len(up); g != e {
+				t.Fatal(i, j, g, e)
+			}
+		}
+
+	}
+}
+
+func TestSeekPrev2(t *testing.T) {
+	// seeking within 3 keys: 10, 20, 30
+	table := []struct {
+		k    int
+		hit  bool
+		keys []int
+	}{
+		{5, false, []int{10}},
+		{10, true, []int{10}},
+		{15, false, []int{20, 10}},
+		{20, true, []int{20, 10}},
+		{25, false, []int{30, 20, 10}},
+		{30, true, []int{30, 20, 10}},
+		{35, false, []int{}},
+	}
+
+	for i, test := range table {
+		down := test.keys
+		db, err := CreateMem(opts())
+		if err != nil {
+			t.Fatal(i, err)
+		}
+
+		if err := db.Set(n2b(10), n2b(100)); err != nil {
+			t.Fatal(i, err)
+		}
+
+		if err := db.Set(n2b(20), n2b(200)); err != nil {
+			t.Fatal(i, err)
+		}
+
+		if err := db.Set(n2b(30), n2b(300)); err != nil {
+			t.Fatal(i, err)
+		}
+
+		for brokenSerial := 0; brokenSerial < 16; brokenSerial++ {
+			en, hit := db.Seek2(n2b(test.k))
+			if g, e := hit, test.hit; g != e {
+				t.Fatal(i, g, e)
+			}
+
+			j := 0
+			for {
+				if brokenSerial&(1<<uint(j)) != 0 {
+					if err := db.Set(n2b(20), n2b(200)); err != nil {
+						t.Fatal(i, err)
+					}
+				}
+
+				if !en.Prev() {
+					if err := en.Err(); err != nil && !fileutil.IsEOF(err) {
+						t.Fatal(i, err)
+					}
+
+					break
+				}
+
+				k, v := en.Key(), en.Value()
+				if g, e := len(k), 8; g != e {
+					t.Fatal(i, g, e)
+				}
+
+				if g, e := len(k), 8; g != e {
+					t.Fatal(i, g, e)
+				}
+
+				if j >= len(down) {
+					t.Fatal(i, j, brokenSerial)
+				}
+
+				if g, e := b2n(k), down[j]; g != e {
+					t.Fatal(i, j, brokenSerial, g, e)
+				}
+
+				if g, e := len(v), 8; g != e {
+					t.Fatal(i, g, e)
+				}
+
+				if g, e := b2n(v), 10*down[j]; g != e {
+					t.Fatal(i, g, e)
+				}
+
+				j++
+
+			}
+
+			if g, e := j, len(down); g != e {
+				t.Fatal(i, j, g, e)
+			}
+		}
+
+	}
+}
+
+func TestSeekFirst2(t *testing.T) {
+	db, err := CreateMem(opts())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	en := db.SeekFirst2()
+	if en.Next() {
+		t.Fatal("unexpected Next() fail")
+	}
+
+	if err := db.Set(n2b(100), n2b(1000)); err != nil {
+		t.Fatal(err)
+	}
+
+	if en = db.SeekFirst2(); !en.Next() {
+		t.Fatal("unexpected Next() fail")
+	}
+
+	k, v := en.Key(), en.Value()
+	if g, e := b2n(k), 100; g != e {
+		t.Fatal(g, e)
+	}
+
+	if g, e := b2n(v), 1000; g != e {
+		t.Fatal(g, e)
+	}
+
+	if err := db.Set(n2b(110), n2b(1100)); err != nil {
+		t.Fatal(err)
+	}
+
+	if en = db.SeekFirst2(); !en.Next() {
+		t.Fatal("unexpected Next() fail")
+	}
+
+	k, v = en.Key(), en.Value()
+	if g, e := b2n(k), 100; g != e {
+		t.Fatal(g, e)
+	}
+
+	if g, e := b2n(v), 1000; g != e {
+		t.Fatal(g, e)
+	}
+
+	if err := db.Set(n2b(90), n2b(900)); err != nil {
+		t.Fatal(err)
+	}
+
+	if en = db.SeekFirst2(); !en.Next() {
+		t.Fatal("unexpected Next() fail")
+	}
+
+	k, v = en.Key(), en.Value()
+	if g, e := b2n(k), 90; g != e {
+		t.Fatal(g, e)
+	}
+
+	if g, e := b2n(v), 900; g != e {
+		t.Fatal(g, e)
+	}
+
+}
+
+func TestSeekLast2(t *testing.T) {
+	db, err := CreateMem(opts())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	en := db.SeekLast2()
+	if en.Next() {
+		t.Fatal("unexpected Next() fail")
+	}
+
+	if err := db.Set(n2b(100), n2b(1000)); err != nil {
+		t.Fatal(err)
+	}
+
+	if en = db.SeekLast2(); !en.Next() {
+		t.Fatal("unexpected Next() fail")
+	}
+
+	k, v := en.Key(), en.Value()
+	if g, e := b2n(k), 100; g != e {
+		t.Fatal(g, e)
+	}
+
+	if g, e := b2n(v), 1000; g != e {
+		t.Fatal(g, e)
+	}
+
+	if err := db.Set(n2b(90), n2b(900)); err != nil {
+		t.Fatal(err)
+	}
+
+	if en = db.SeekLast2(); !en.Next() {
+		t.Fatal("unexpected Next() fail")
+	}
+
+	k, v = en.Key(), en.Value()
+	if g, e := b2n(k), 100; g != e {
+		t.Fatal(g, e)
+	}
+
+	if g, e := b2n(v), 1000; g != e {
+		t.Fatal(g, e)
+	}
+
+	if err := db.Set(n2b(110), n2b(1100)); err != nil {
+		t.Fatal(err)
+	}
+
+	if en = db.SeekLast2(); !en.Next() {
+		t.Fatal("unexpected Next() fail")
+	}
+
+	k, v = en.Key(), en.Value()
+	if g, e := b2n(k), 110; g != e {
+		t.Fatal(g, e)
+	}
+
+	if g, e := b2n(v), 1100; g != e {
+		t.Fatal(g, e)
+	}
+}

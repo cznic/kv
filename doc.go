@@ -6,6 +6,11 @@
 
 Package kv implements a simple and easy to use persistent key/value (KV) store.
 
+Changelog
+
+2015-07-19: Added Enumerator2, Seek2, SeekFirst2 and SeekLast2. (Thanks
+rogpeppe!)
+
 The stored KV pairs are sorted in the key collation order defined by an user
 supplied 'compare' function (passed as a field in Options).
 
