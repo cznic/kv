@@ -731,6 +731,69 @@ func TestGet(t *testing.T) {
 	wg.Wait()
 }
 
+func TestGetEmpty(t *testing.T) {
+	o := opts()
+	dir, _ := temp()
+	defer os.RemoveAll(dir)
+
+	db, err := CreateTemp(dir, "temp", ".db", o)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer func() {
+		db.Close()
+		os.Remove(o._WAL)
+	}()
+
+	missing := []byte("missing")
+	empty := []byte("empty")
+	err = db.Set(empty, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Check the empty record exists
+	_, exists, err := db.Seek(empty)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !exists {
+		t.Fatalf("empty record does not exist")
+	}
+
+	// And not missing one
+	_, exists, err = db.Seek(missing)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if exists {
+		t.Fatalf("missing record exists")
+	}
+
+	checkGet := func(key, buf, wanted []byte) {
+		data, err := db.Get(buf, key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if wanted == nil {
+			if data != nil {
+				t.Fatalf("%s returned %v instead of nil", string(key), data)
+			}
+		} else {
+			if data == nil {
+				t.Fatalf("%s returned nil instead of non-nil", key)
+			}
+			if len(wanted) != len(data) {
+				t.Fatalf("%s returned %x instead of %x", string(key), data, wanted)
+			}
+		}
+	}
+	checkGet(missing, nil, nil)
+	checkGet(missing, []byte{}, nil)
+	checkGet(empty, nil, []byte{})
+	checkGet(empty, []byte{}, []byte{})
+}
+
 func BenchmarkGet16(b *testing.B) {
 	const (
 		m = 4
