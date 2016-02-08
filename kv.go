@@ -81,7 +81,7 @@ func Create(name string, opts *Options) (db *DB, err error) {
 		return
 	}
 
-	return create(lldb.NewSimpleFileFiler(f), opts, false)
+	return CreateFromFiler(lldb.NewSimpleFileFiler(f), opts)
 }
 
 func create(filer lldb.Filer, opts *Options, isMem bool) (db *DB, err error) {
