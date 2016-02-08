@@ -187,6 +187,17 @@ func CreateTemp(dir, prefix, suffix string, opts *Options) (db *DB, err error) {
 //
 // For the meaning of opts please see documentation of Options.
 func Open(name string, opts *Options) (db *DB, err error) {
+	f, err := os.OpenFile(name, os.O_RDWR, 0666)
+	if err != nil {
+		return nil, err
+	}
+
+	return OpenFromFiler(lldb.NewSimpleFileFiler(f), opts)
+}
+
+// OpenFromFiler is like Open but it accepts an arbitrary backing storage
+// provided by filer.
+func OpenFromFiler(filer lldb.Filer, opts *Options) (db *DB, err error) {
 	opts = opts.clone()
 	opts._ACID = _ACIDFull
 	defer func() {
@@ -208,16 +219,11 @@ func Open(name string, opts *Options) (db *DB, err error) {
 		}
 	}()
 
+	name := filer.Name()
 	if err = opts.check(name, false, true); err != nil {
 		return
 	}
 
-	f, err := os.OpenFile(name, os.O_RDWR, 0666)
-	if err != nil {
-		return
-	}
-
-	filer := lldb.Filer(lldb.NewSimpleFileFiler(f))
 	sz, err := filer.Size()
 	if err != nil {
 		return

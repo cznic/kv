@@ -237,7 +237,7 @@ func TestVerify(t *testing.T) {
 
 	defer db.Close()
 
-	t.Log(db.Name(), o._WAL)
+	t.Log(db.Name(), o.WAL)
 	if err := db.Verify(nil, nil); err != nil {
 		t.Error(err)
 	}
@@ -649,7 +649,7 @@ func BenchmarkFirst16(b *testing.B) {
 
 	defer func() {
 		db.Close()
-		os.Remove(o._WAL)
+		os.Remove(o.WAL)
 	}()
 
 	rng := fc()
@@ -683,7 +683,7 @@ func TestGet(t *testing.T) {
 
 	defer func() {
 		db.Close()
-		os.Remove(o._WAL)
+		os.Remove(o.WAL)
 	}()
 
 	rng := fc()
@@ -743,7 +743,7 @@ func TestGetEmpty(t *testing.T) {
 
 	defer func() {
 		db.Close()
-		os.Remove(o._WAL)
+		os.Remove(o.WAL)
 	}()
 
 	missing := []byte("missing")
@@ -1145,7 +1145,7 @@ func BenchmarkLast16(b *testing.B) {
 	defer func(n string) {
 		db.Close()
 		os.Remove(n)
-		os.Remove(o._WAL)
+		os.Remove(o.WAL)
 	}(dbname)
 
 	rng := fc()
