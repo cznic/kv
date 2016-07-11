@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/cznic/exp/lldb"
+	"github.com/cznic/lldb"
 )
 
 const (
@@ -36,7 +36,7 @@ const (
 	// WAL.  Updates to the DB will be first made permanent in a WAL and
 	// only after that reflected in the DB. A DB will automatically recover
 	// from crashes and/or any other non clean DB shutdown. Only last
-	// uncommited transaction (transaction in progress ATM of a crash) can
+	// uncommitted transaction (transaction in progress ATM of a crash) can
 	// get lost.
 	//
 	// NOTE: Options.GracePeriod may extend the span of a single

@@ -6,7 +6,7 @@
 
 Command kvaudit verifies kv databases.
 
-Instalation:
+Installation:
 
     $ go get github.com/cznic/kv/kvaudit
 
@@ -55,7 +55,7 @@ Links
 
 Referenced from above:
 
-  [0]: http://godoc.org/github.com/cznic/exp/lldb#Allocator.Verify
+  [0]: http://godoc.org/github.com/cznic/lldb#Allocator.Verify
   [1]: https://code.google.com/p/camlistore/issues/detail?id=216
   [2]: http://cr.yp.to/cdb/cdbmake.html
 
@@ -71,7 +71,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/cznic/exp/lldb"
+	"github.com/cznic/lldb"
 )
 
 func rep(s string, a ...interface{}) {

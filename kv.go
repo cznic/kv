@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/cznic/bufs"
-	"github.com/cznic/exp/lldb"
 	"github.com/cznic/fileutil"
+	"github.com/cznic/lldb"
 )
 
 const (
@@ -335,7 +335,7 @@ func (db *DB) Close() (err error) {
 }
 
 func (db *DB) close() (err error) {
-	// We are safe to close due to locked db.closeMu, but not safe aginst
+	// We are safe to close due to locked db.closeMu, but not safe against
 	// any other goroutine concurrently calling other exported db methods,
 	// causing a race[0] in the db.enter() mechanism. So we must lock
 	// db.bkl.

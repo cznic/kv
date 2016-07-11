@@ -7,7 +7,6 @@ package kv
 import (
 	"encoding/binary"
 	"flag"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"math"
@@ -27,19 +26,8 @@ import (
 const sz0 = 144 // size of an empty KV DB
 
 var (
-	oDB   = flag.String("db", "", "DB to use in BenchmarkEnumerateDB")
-	oKeep = flag.Bool("keep", false, "do not delete test DB (some tests)")
+	oDB = flag.String("db", "", "DB to use in BenchmarkEnumerateDB")
 )
-
-func dbg(s string, va ...interface{}) {
-	if s == "" {
-		s = strings.Repeat("%v ", len(va))
-	}
-	_, fn, fl, _ := runtime.Caller(1)
-	fmt.Printf("%s:%d: ", path.Base(fn), fl)
-	fmt.Printf(s, va...)
-	fmt.Println()
-}
 
 func opts() *Options {
 	return &Options{
