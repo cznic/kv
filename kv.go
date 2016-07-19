@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cznic/bufs"
 	"github.com/cznic/fileutil"
+	"github.com/cznic/internal/buffer"
 	"github.com/cznic/lldb"
 )
 
@@ -44,14 +44,13 @@ type DB struct {
 	acidTimer     *time.Timer     // Grace period timer
 	alloc         *lldb.Allocator // The machinery. Wraps filer
 	bkl           sync.Mutex      // Big Kernel Lock
-	buffers       bufs.Cache
-	closeMu       sync.Mutex    // Close() coordination
-	closed        bool          // it was
-	filer         lldb.Filer    // Wraps f
-	gracePeriod   time.Duration // WAL grace period
-	isMem         bool          // No signal capture
-	lastCommitErr error         // from failed EndUpdate
-	lock          io.Closer     // The DB file lock
+	closeMu       sync.Mutex      // Close() coordination
+	closed        bool            // it was
+	filer         lldb.Filer      // Wraps f
+	gracePeriod   time.Duration   // WAL grace period
+	isMem         bool            // No signal capture
+	lastCommitErr error           // from failed EndUpdate
+	lock          io.Closer       // The DB file lock
 	opts          *Options
 	root          *lldb.BTree // The KV layer
 	wal           *os.File    // WAL if any
@@ -818,10 +817,10 @@ func (db *DB) Inc(key []byte, delta int64) (val int64, err error) {
 
 	defer db.leave(&err)
 
-	buf := db.buffers.Get(8)
-	defer db.buffers.Put(buf)
+	pbuf := buffer.Get(8)
+	defer buffer.Put(pbuf)
 	_, _, err = db.root.Put(
-		buf,
+		*pbuf,
 		key,
 		func(key []byte, old []byte) (new []byte, write bool, err error) {
 			write = true
