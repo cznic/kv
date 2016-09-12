@@ -2065,7 +2065,7 @@ func TestIssue32File(t *testing.T) {
 					<-startC
 					h := sha512.New()
 					h.Write([]byte(strconv.Itoa(i)))
-					_, _, err = db.Put(nil, h.Sum(nil), func(k, v []byte) ([]byte, bool, error) { return val, true, nil })
+					_, _, err := db.Put(nil, h.Sum(nil), func(k, v []byte) ([]byte, bool, error) { return val, true, nil })
 					if err != nil {
 						t.Fatalf("Put failed: %v", err)
 					}
