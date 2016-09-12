@@ -2037,8 +2037,7 @@ func TestIssue24File(t *testing.T) {
 
 // https://github.com/cznic/kv/issues/32
 func TestIssue32File(t *testing.T) {
-	path := "test_dbs"
-	err := os.Mkdir(path, 0777)
+	path, err := ioutil.TempDir("", "kv.test-")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2081,7 +2080,7 @@ func TestIssue32File(t *testing.T) {
 	for dbNum := 0; dbNum < 15; dbNum++ {
 		db, err := Open(filepath.Join(path, strconv.Itoa(dbNum)), &Options{VerifyDbBeforeOpen: true})
 		if err != nil {
-			t.Fatalf("Error open %s: %s\n", path, err)
+			t.Fatalf("Error open %s: %s\n", filepath.Join(path, strconv.Itoa(dbNum)), err)
 		}
 		for i := 0; i < 100; i++ {
 			h := sha512.New()
