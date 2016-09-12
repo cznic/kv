@@ -7,7 +7,6 @@ package kv
 import (
 	"crypto/sha512"
 	"encoding/binary"
-	"encoding/hex"
 	"flag"
 	"io"
 	"io/ioutil"
@@ -2038,147 +2037,62 @@ func TestIssue24File(t *testing.T) {
 
 // https://github.com/cznic/kv/issues/32
 func TestIssue32File(t *testing.T) {
-	const (
-		dbName = "test.db"
-	)
-
-	type testDB struct {
-		sync.Mutex
-		db       *DB
-		wg       *sync.WaitGroup
-		indexNum int      // indexes per db
-		numDB    int      // index number of db
-		dbList   []string //list of all dbs
-	}
-
-	type DBWithoutMutex struct {
-		db       *DB
-		wg       *sync.WaitGroup
-		indexNum int      // indexes per db
-		numDB    int      // index number of db
-		dbList   []string //list of all dbs
-	}
-
-	queue := func(closingDB <-chan DBWithoutMutex, done <-chan struct{}) {
-		for {
-			select {
-			case db := <-closingDB:
-				t.Log("Closing")
-				go func() {
-					db.wg.Wait()
-					db.db.Close()
-				}()
-			case <-done:
-				return
-			}
-		}
-	}
-
-	done := make(chan struct{})
-	closingDB := make(chan DBWithoutMutex)
-
-	go queue(closingDB, done)
-
-	var err error
-	db := testDB{}
-	db.db, err = Create(dbName+strconv.Itoa(db.numDB), &Options{VerifyDbBeforeOpen: true})
+	path := "test_dbs"
+	err := os.Mkdir(path, 0777)
 	if err != nil {
 		t.Fatal(err)
 	}
-	db.wg = &sync.WaitGroup{}
-	db.dbList = append(db.dbList, dbName+strconv.Itoa(db.numDB))
+	defer os.RemoveAll(path)
+	val := []byte{1, 2, 3}
+	wgMain := sync.WaitGroup{}
 
-	// All keys
-	keys := struct {
-		sync.Mutex
-		keys [][]byte
-	}{
-		keys: [][]byte{},
-	}
-
-	wg := sync.WaitGroup{}
-	startC := make(chan struct{})
-	for count := 0; count < 100; count++ {
-		wg.Add(1)
-		go func(count int) {
-			defer wg.Done()
-			<-startC
-			for i := 0; i < 100; i++ {
-
-				h := sha512.New()
-				h.Write([]byte(strconv.Itoa(i) + "_" + strconv.Itoa(count)))
-
-				keys.Lock()
-				keys.keys = append(keys.keys, h.Sum(nil))
-				keys.Unlock()
-
-				db.Lock()
-				db.indexNum += 1
-				if db.indexNum == 1000 {
-					db.indexNum = 0
-					closingDB <- DBWithoutMutex{
-						db:       db.db,
-						wg:       db.wg,
-						indexNum: db.indexNum,
-						numDB:    db.numDB,
-						dbList:   db.dbList,
-					}
-					db.numDB += 1
-					db.db, err = Create(dbName+strconv.Itoa(db.numDB), &Options{VerifyDbBeforeOpen: true})
-					if err != nil {
-						t.Fatal("Error create", dbName+strconv.Itoa(db.numDB))
-					}
-					db.wg = &sync.WaitGroup{}
-					db.dbList = append(db.dbList, dbName+strconv.Itoa(db.numDB))
-				}
-				currentDB := DBWithoutMutex{
-					db:       db.db,
-					wg:       db.wg,
-					indexNum: db.indexNum,
-					numDB:    db.numDB,
-					dbList:   db.dbList,
-				}
-				currentDBname := dbName + strconv.Itoa(db.numDB)
-				currentDB.wg.Add(1)
-				db.Unlock()
-
-				// time.Sleep(time.Duration(rand.Intn(100)) * time.Microsecond)
-				val := []byte{1, 2, 3}
-
-				_, _, err = currentDB.db.Put(nil, h.Sum(nil), func(k, v []byte) ([]byte, bool, error) { return val, true, nil })
-				if err != nil {
-					t.Fatalf("Error put key %d to %s: %s\n", currentDB.indexNum, currentDBname, err)
-				}
-
-				_, err = currentDB.db.Get(nil, h.Sum(nil))
-				if err != nil {
-					t.Fatalf("Error1 get key %d from %s: %s\n", currentDB.indexNum, currentDBname, err)
-				}
-				_, err = currentDB.db.Get(nil, h.Sum(nil))
-				if err != nil {
-					t.Fatalf("Error2 get key %d from %s: %s\n", currentDB.indexNum, currentDBname, err)
-				}
-				currentDB.wg.Done()
+	for i := 0; i < 15; i++ {
+		wgMain.Add(1)
+		go func(i int) {
+			defer wgMain.Done()
+			db, err := Create(filepath.Join(path, strconv.Itoa(i)), &Options{VerifyDbBeforeOpen: true})
+			if err != nil {
+				t.Fatalf("Create db failed: %v", err)
 			}
-		}(count)
-	}
-	close(startC)
-	wg.Wait()
-	t.Log(len(keys.keys))
-	db.db.Close()
-	close(done)
+			defer db.Close()
 
-	for _, path := range db.dbList {
-		curDB, err := Open(path, &Options{VerifyDbBeforeOpen: true})
+			wg := sync.WaitGroup{}
+			startC := make(chan struct{})
+
+			for i := 0; i < 100; i++ {
+				wg.Add(1)
+				go func(i int) {
+					defer wg.Done()
+					<-startC
+					h := sha512.New()
+					h.Write([]byte(strconv.Itoa(i)))
+					_, _, err = db.Put(nil, h.Sum(nil), func(k, v []byte) ([]byte, bool, error) { return val, true, nil })
+					if err != nil {
+						t.Fatalf("Put failed: %v", err)
+					}
+					h.Reset()
+				}(i)
+			}
+			close(startC)
+			wg.Wait()
+		}(i)
+	}
+	wgMain.Wait()
+	for dbNum := 0; dbNum < 15; dbNum++ {
+		db, err := Open(filepath.Join(path, strconv.Itoa(dbNum)), &Options{VerifyDbBeforeOpen: true})
 		if err != nil {
 			t.Fatalf("Error open %s: %s\n", path, err)
 		}
-		for _, k := range keys.keys {
-			_, err = curDB.Get(nil, k)
+		for i := 0; i < 100; i++ {
+			h := sha512.New()
+			h.Write([]byte(strconv.Itoa(i)))
+			_, err = db.Get(nil, h.Sum(nil))
 			if err != nil {
-				t.Fatalf("Error get key %s from %s: %s\n", hex.EncodeToString(k), path, err)
+				db.Close()
+				t.Fatalf("Get failed: %v", err)
 			}
+			h.Reset()
 		}
-		curDB.Close()
+		db.Close()
 	}
 }
