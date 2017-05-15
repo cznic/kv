@@ -71,7 +71,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/cznic/lldb"
+	"github.com/cznic/exp/lldb"
 )
 
 func rep(s string, a ...interface{}) {
