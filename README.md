@@ -1,10 +1,5 @@
-kv
-==
+`github.com/cznic/kv` has moved to [`modernc.org/kv`](https://godoc.org/modernc.org/kv) ([vcs](https://gitlab.com/cznic/kv)).
 
-Package kv implements a simple and easy to use persistent key/value (KV) store.
+Please update your import paths to `modernc.org/kv`.
 
-Installation
-
-    $ go get github.com/cznic/kv
-
-Documentation: [godoc.org/github.com/cznic/kv](http://godoc.org/github.com/cznic/kv)
+This repo is now archived.
